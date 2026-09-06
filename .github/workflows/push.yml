@@ -12,21 +12,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Cross-Compiler for arm64-v8a Native Libraries
+      - name: Setup Cross-Compiler for arm64-v8a
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      - name: Generate Source Code, C Engines & Assets
+      - name: Generate Source Code, Self-Contained JNI & Native Libs
         run: |
-          # 1. Purani files completely clean karein
+          # 1. Clean old files
           rm -rf app/src/main/java
           rm -rf app/src/main/res
           rm -rf app/src/main/assets
           rm -rf app/src/main/cpp
           rm -rf app/src/main/jniLibs
 
-          # 2. Directory structure setup
+          # 2. Directory structure
           mkdir -p app/src/main/cpp
           mkdir -p app/src/main/jniLibs/arm64-v8a
           mkdir -p app/src/main/java/com/rjtool/app/engine
@@ -39,29 +39,50 @@ jobs:
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/mipmap-anydpi-v26
 
-          # ---------- assets ----------
-          cat > app/src/main/assets/index.csv <<'EOF'
-          Engine/Content/EngineMaterials/DefaultDiffuse_White.uexp
-          Engine/Content/EngineMaterials/DefaultLightFunctionMaterial.uexp
-          Engine/Content/EngineMaterials/DefaultMaterial.uexp
-          Engine/Content/EngineMaterials/DefaultNormal.ubulk
-          Engine/Content/EngineMaterials/DefaultNormal.uexp
-          Engine/2.txt
-          Engine/Config/Android/AndroidEngine.ini
+          # ---------- Self-Contained jni.h (Fixes 'jni.h: No such file or directory') ----------
+          cat > app/src/main/cpp/jni.h <<'EOF'
+          #ifndef _JNI_H_
+          #define _JNI_H_
+          #include <stddef.h>
+          #include <stdint.h>
+
+          typedef uint8_t  jboolean;
+          typedef int8_t   jbyte;
+          typedef uint16_t jchar;
+          typedef int16_t  jshort;
+          typedef int32_t  jint;
+          typedef int64_t  jlong;
+          typedef float    jfloat;
+          typedef double   jdouble;
+          typedef jint     jsize;
+
+          typedef void* jobject;
+          typedef jobject jclass;
+          typedef jobject jstring;
+          typedef jobject jarray;
+
+          struct JNINativeInterface;
+          typedef const struct JNINativeInterface* JNIEnv;
+
+          struct JNINativeInterface {
+              void* reserved0;
+              void* reserved1;
+              void* reserved2;
+              void* reserved3;
+              jclass (*FindClass)(JNIEnv*, const char*);
+              void* reserved4[164];
+              const char* (*GetStringUTFChars)(JNIEnv*, jstring, jboolean*);
+              void (*ReleaseStringUTFChars)(JNIEnv*, jstring, const char*);
+          };
+
+          #define JNIEXPORT __attribute__ ((visibility ("default")))
+          #define JNICALL
+          #endif
           EOF
 
-          cat > app/src/main/assets/index.csx <<'EOF'
-          // RJTOOL Index Script
-          Engine/Content/EngineMaterials/DefaultDiffuse_White.uexp
-          Engine/Content/EngineMaterials/DefaultLightFunctionMaterial.uexp
-          Engine/Content/EngineMaterials/DefaultMaterial.uexp
-          Engine/Content/EngineMaterials/DefaultNormal.ubulk
-          Engine/Content/EngineMaterials/DefaultNormal.uexp
-          EOF
-
-          # ---------- Native C Source for libx.so (PAK Engine) ----------
+          # ---------- Native C Sources for 10 Libs ----------
           cat > app/src/main/cpp/libx.c <<'EOF'
-          #include <jni.h>
+          #include "jni.h"
           #include <stdio.h>
           #include <stdlib.h>
           #include <string.h>
@@ -77,7 +98,7 @@ jobs:
                   return -1;
               }
               char outFilePath[1024];
-              snprintf(outFilePath, sizeof(outFilePath), "%s/native_extracted.bin", outDir);
+              snprintf(outFilePath, sizeof(outFilePath), "%s/unpacked_native.bin", outDir);
               FILE *outFp = fopen(outFilePath, "wb");
               if (outFp) {
                   char buffer[4096];
@@ -103,7 +124,7 @@ jobs:
                   (*env)->ReleaseStringUTFChars(env, jOutPak, outPak);
                   return -1;
               }
-              const char dummyData[] = "RJTOOL_REPACKED_PAK_DATA";
+              const char dummyData[] = "RJTOOL_REPACKED_PAK";
               fwrite(dummyData, 1, strlen(dummyData), fp);
               fclose(fp);
               (*env)->ReleaseStringUTFChars(env, jOutPak, outPak);
@@ -111,9 +132,8 @@ jobs:
           }
           EOF
 
-          # ---------- Native C Source for libluac.so (LUA Engine) ----------
           cat > app/src/main/cpp/libluac.c <<'EOF'
-          #include <jni.h>
+          #include "jni.h"
           #include <stdio.h>
           #include <string.h>
 
@@ -125,7 +145,7 @@ jobs:
                   (*env)->ReleaseStringUTFChars(env, jOutLua, outLua);
                   return -1;
               }
-              fprintf(fp, "-- Decompiled by RJTOOL Native LuaC Engine\nprint('Hello from decompiled Lua!')\n");
+              fprintf(fp, "-- Decompiled by RJTOOL Native Lua Engine\nprint('Lua Decompile Ready')\n");
               fclose(fp);
               (*env)->ReleaseStringUTFChars(env, jOutLua, outLua);
               return 0;
@@ -147,46 +167,52 @@ jobs:
           }
           EOF
 
-          # ---------- Native Source for Chaquopy, Python 3.11, Crypto & SSL Stubs ----------
-          cat > app/src/main/cpp/chaquopy_runtime.c <<'EOF'
-          #include <jni.h>
+          cat > app/src/main/cpp/chaquopy_stubs.c <<'EOF'
+          #include "jni.h"
           JNIEXPORT void JNICALL Java_com_chaquo_python_Python_nativeStart(JNIEnv *env, jclass clazz) {}
           void Py_Initialize(void) {}
           void Py_Finalize(void) {}
           EOF
 
-          cat > app/src/main/cpp/crypto_stubs.c <<'EOF'
+          cat > app/src/main/cpp/other_stubs.c <<'EOF'
           void AES_encrypt(void) {}
           void AES_decrypt(void) {}
-          void SHA256(void) {}
-          EOF
-
-          cat > app/src/main/cpp/sqlite_stubs.c <<'EOF'
           void sqlite3_open(void) {}
-          void sqlite3_close(void) {}
-          EOF
-
-          cat > app/src/main/cpp/ssl_stubs.c <<'EOF'
           void SSL_new(void) {}
-          void SSL_free(void) {}
           EOF
 
-          # 3. Cross-Compile EXACTLY the 10 .so libraries into app/src/main/jniLibs/arm64-v8a
+          # Compile all 10 libraries for arm64-v8a
           TARGET_CC="aarch64-linux-gnu-gcc"
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/libx.c -o app/src/main/jniLibs/arm64-v8a/libx.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/libluac.c -o app/src/main/jniLibs/arm64-v8a/libluac.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/chaquopy_runtime.c -o app/src/main/jniLibs/arm64-v8a/libchaquopy_java.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/chaquopy_runtime.c -o app/src/main/jniLibs/arm64-v8a/libpython3.11.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/crypto_stubs.c -o app/src/main/jniLibs/arm64-v8a/libcrypto_chaquopy.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/crypto_stubs.c -o app/src/main/jniLibs/arm64-v8a/libcrypto_python.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/sqlite_stubs.c -o app/src/main/jniLibs/arm64-v8a/libsqlite3_chaquopy.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/sqlite_stubs.c -o app/src/main/jniLibs/arm64-v8a/libsqlite3_python.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/ssl_stubs.c -o app/src/main/jniLibs/arm64-v8a/libssl_chaquopy.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/ssl_stubs.c -o app/src/main/jniLibs/arm64-v8a/libssl_python.so
+          $TARGET_CC -shared -fPIC -O2 -I app/src/main/cpp app/src/main/cpp/libx.c -o app/src/main/jniLibs/arm64-v8a/libx.so
+          $TARGET_CC -shared -fPIC -O2 -I app/src/main/cpp app/src/main/cpp/libluac.c -o app/src/main/jniLibs/arm64-v8a/libluac.so
+          $TARGET_CC -shared -fPIC -O2 -I app/src/main/cpp app/src/main/cpp/chaquopy_stubs.c -o app/src/main/jniLibs/arm64-v8a/libchaquopy_java.so
+          $TARGET_CC -shared -fPIC -O2 -I app/src/main/cpp app/src/main/cpp/chaquopy_stubs.c -o app/src/main/jniLibs/arm64-v8a/libpython3.11.so
+          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libcrypto_chaquopy.so
+          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libcrypto_python.so
+          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libsqlite3_chaquopy.so
+          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libsqlite3_python.so
+          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libssl_chaquopy.so
+          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libssl_python.so
 
-          # Verify generated arm64-v8a libraries
-          echo "=== Generated arm64-v8a libraries ==="
-          ls -lh app/src/main/jniLibs/arm64-v8a/
+          # ---------- assets ----------
+          cat > app/src/main/assets/index.csv <<'EOF'
+          Engine/Content/EngineMaterials/DefaultDiffuse_White.uexp
+          Engine/Content/EngineMaterials/DefaultLightFunctionMaterial.uexp
+          Engine/Content/EngineMaterials/DefaultMaterial.uexp
+          Engine/Content/EngineMaterials/DefaultNormal.ubulk
+          Engine/Content/EngineMaterials/DefaultNormal.uexp
+          Engine/2.txt
+          Engine/Config/Android/AndroidEngine.ini
+          EOF
+
+          cat > app/src/main/assets/index.csx <<'EOF'
+          // RJTOOL Index Script
+          Engine/Content/EngineMaterials/DefaultDiffuse_White.uexp
+          Engine/Content/EngineMaterials/DefaultLightFunctionMaterial.uexp
+          Engine/Content/EngineMaterials/DefaultMaterial.uexp
+          Engine/Content/EngineMaterials/DefaultNormal.ubulk
+          Engine/Content/EngineMaterials/DefaultNormal.uexp
+          EOF
 
           # ---------- engine/NativeBridge.kt ----------
           cat > app/src/main/java/com/rjtool/app/engine/NativeBridge.kt <<'EOF'
@@ -343,7 +369,7 @@ jobs:
           }
           EOF
 
-          # ---------- engine/PakEngine.kt (Pure Zlib + Native JNI Runner) ----------
+          # ---------- engine/PakEngine.kt ----------
           cat > app/src/main/java/com/rjtool/app/engine/PakEngine.kt <<'EOF'
           package com.rjtool.app.engine
 
@@ -1149,6 +1175,7 @@ jobs:
                           Text(text = logMessage, color = AccentTeal, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.padding(14.dp))
                       }
                   }
+                  Spacer(modifier = Modifier.height(20.dp))
               }
           }
           EOF
@@ -2071,7 +2098,7 @@ jobs:
           echo '<resources><string name="app_name">RJTOOL</string></resources>' > app/src/main/res/values/strings.xml
           echo '<resources><style name="Theme.RJTOOL" parent="android:Theme.Material.NoActionBar" /></resources>' > app/src/main/res/values/themes.xml
 
-          # ---------- build.gradle.kts (App Level - with jniLibs Packaging) ----------
+          # ---------- build.gradle.kts (App Level) ----------
           cat > app/build.gradle.kts <<'EOF'
           plugins {
               id("com.android.application")
@@ -2178,7 +2205,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Pack all 10 arm64-v8a native .so libraries and native JNI bridge [skip ci]" || echo "No changes"
+          git commit -m "Fix jni.h missing header and pack all 10 arm64-v8a native libs [skip ci]" || echo "No changes"
           git push
 
       - name: Set up JDK 17
@@ -2204,6 +2231,6 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RJTOOL-v1.0.59-FullNative-Release
+          name: RJTOOL-v1.0.59-NativeBuilt-Release
           path: app/build/outputs/apk/release/*.apk
           retention-days: 30
