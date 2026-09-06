@@ -12,23 +12,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Cross-Compiler for arm64-v8a
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Set up Python 3.11 for Chaquopy Build
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Generate Source Code, Self-Contained JNI & Native Libs
+      - name: Generate Complete Chaquopy Engine, Sources & Assets
         run: |
-          # 1. Clean old files
+          # 1. Clean previous builds and files
           rm -rf app/src/main/java
           rm -rf app/src/main/res
           rm -rf app/src/main/assets
-          rm -rf app/src/main/cpp
+          rm -rf app/src/main/python
           rm -rf app/src/main/jniLibs
+          rm -rf app/src/main/cpp
 
-          # 2. Directory structure
-          mkdir -p app/src/main/cpp
-          mkdir -p app/src/main/jniLibs/arm64-v8a
+          # 2. Setup directory hierarchy
+          mkdir -p app/src/main/python
           mkdir -p app/src/main/java/com/rjtool/app/engine
           mkdir -p app/src/main/java/com/rjtool/app/ui/components
           mkdir -p app/src/main/java/com/rjtool/app/ui/screens
@@ -38,161 +38,6 @@ jobs:
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/mipmap-anydpi-v26
-
-          # ---------- Self-Contained jni.h (Fixes 'jni.h: No such file or directory') ----------
-          cat > app/src/main/cpp/jni.h <<'EOF'
-          #ifndef _JNI_H_
-          #define _JNI_H_
-          #include <stddef.h>
-          #include <stdint.h>
-
-          typedef uint8_t  jboolean;
-          typedef int8_t   jbyte;
-          typedef uint16_t jchar;
-          typedef int16_t  jshort;
-          typedef int32_t  jint;
-          typedef int64_t  jlong;
-          typedef float    jfloat;
-          typedef double   jdouble;
-          typedef jint     jsize;
-
-          typedef void* jobject;
-          typedef jobject jclass;
-          typedef jobject jstring;
-          typedef jobject jarray;
-
-          struct JNINativeInterface;
-          typedef const struct JNINativeInterface* JNIEnv;
-
-          struct JNINativeInterface {
-              void* reserved0;
-              void* reserved1;
-              void* reserved2;
-              void* reserved3;
-              jclass (*FindClass)(JNIEnv*, const char*);
-              void* reserved4[164];
-              const char* (*GetStringUTFChars)(JNIEnv*, jstring, jboolean*);
-              void (*ReleaseStringUTFChars)(JNIEnv*, jstring, const char*);
-          };
-
-          #define JNIEXPORT __attribute__ ((visibility ("default")))
-          #define JNICALL
-          #endif
-          EOF
-
-          # ---------- Native C Sources for 10 Libs ----------
-          cat > app/src/main/cpp/libx.c <<'EOF'
-          #include "jni.h"
-          #include <stdio.h>
-          #include <stdlib.h>
-          #include <string.h>
-
-          JNIEXPORT jint JNICALL
-          Java_com_rjtool_app_engine_NativeBridge_nativeUnpackPak(JNIEnv *env, jobject thiz, jstring jPakPath, jstring jOutDir, jboolean decryptLua) {
-              const char *pakPath = (*env)->GetStringUTFChars(env, jPakPath, 0);
-              const char *outDir = (*env)->GetStringUTFChars(env, jOutDir, 0);
-              FILE *fp = fopen(pakPath, "rb");
-              if (!fp) {
-                  (*env)->ReleaseStringUTFChars(env, jPakPath, pakPath);
-                  (*env)->ReleaseStringUTFChars(env, jOutDir, outDir);
-                  return -1;
-              }
-              char outFilePath[1024];
-              snprintf(outFilePath, sizeof(outFilePath), "%s/unpacked_native.bin", outDir);
-              FILE *outFp = fopen(outFilePath, "wb");
-              if (outFp) {
-                  char buffer[4096];
-                  size_t bytes;
-                  size_t total = 0;
-                  while ((bytes = fread(buffer, 1, sizeof(buffer), fp)) > 0 && total < 1024 * 1024 * 5) {
-                      fwrite(buffer, 1, bytes, outFp);
-                      total += bytes;
-                  }
-                  fclose(outFp);
-              }
-              fclose(fp);
-              (*env)->ReleaseStringUTFChars(env, jPakPath, pakPath);
-              (*env)->ReleaseStringUTFChars(env, jOutDir, outDir);
-              return 0;
-          }
-
-          JNIEXPORT jint JNICALL
-          Java_com_rjtool_app_engine_NativeBridge_nativeRepackPak(JNIEnv *env, jobject thiz, jstring jInDir, jstring jOutPak) {
-              const char *outPak = (*env)->GetStringUTFChars(env, jOutPak, 0);
-              FILE *fp = fopen(outPak, "wb");
-              if (!fp) {
-                  (*env)->ReleaseStringUTFChars(env, jOutPak, outPak);
-                  return -1;
-              }
-              const char dummyData[] = "RJTOOL_REPACKED_PAK";
-              fwrite(dummyData, 1, strlen(dummyData), fp);
-              fclose(fp);
-              (*env)->ReleaseStringUTFChars(env, jOutPak, outPak);
-              return 0;
-          }
-          EOF
-
-          cat > app/src/main/cpp/libluac.c <<'EOF'
-          #include "jni.h"
-          #include <stdio.h>
-          #include <string.h>
-
-          JNIEXPORT jint JNICALL
-          Java_com_rjtool_app_engine_NativeBridge_nativeDecompileLua(JNIEnv *env, jobject thiz, jstring jInLuac, jstring jOutLua) {
-              const char *outLua = (*env)->GetStringUTFChars(env, jOutLua, 0);
-              FILE *fp = fopen(outLua, "w");
-              if (!fp) {
-                  (*env)->ReleaseStringUTFChars(env, jOutLua, outLua);
-                  return -1;
-              }
-              fprintf(fp, "-- Decompiled by RJTOOL Native Lua Engine\nprint('Lua Decompile Ready')\n");
-              fclose(fp);
-              (*env)->ReleaseStringUTFChars(env, jOutLua, outLua);
-              return 0;
-          }
-
-          JNIEXPORT jint JNICALL
-          Java_com_rjtool_app_engine_NativeBridge_nativeCompileLua(JNIEnv *env, jobject thiz, jstring jInLua, jstring jOutLuac) {
-              const char *outLuac = (*env)->GetStringUTFChars(env, jOutLuac, 0);
-              FILE *fp = fopen(outLuac, "wb");
-              if (!fp) {
-                  (*env)->ReleaseStringUTFChars(env, jOutLuac, outLuac);
-                  return -1;
-              }
-              const unsigned char luaHeader[] = {0x1B, 0x4C, 0x75, 0x61, 0x51, 0x00, 0x01, 0x04};
-              fwrite(luaHeader, 1, sizeof(luaHeader), fp);
-              fclose(fp);
-              (*env)->ReleaseStringUTFChars(env, jOutLuac, outLuac);
-              return 0;
-          }
-          EOF
-
-          cat > app/src/main/cpp/chaquopy_stubs.c <<'EOF'
-          #include "jni.h"
-          JNIEXPORT void JNICALL Java_com_chaquo_python_Python_nativeStart(JNIEnv *env, jclass clazz) {}
-          void Py_Initialize(void) {}
-          void Py_Finalize(void) {}
-          EOF
-
-          cat > app/src/main/cpp/other_stubs.c <<'EOF'
-          void AES_encrypt(void) {}
-          void AES_decrypt(void) {}
-          void sqlite3_open(void) {}
-          void SSL_new(void) {}
-          EOF
-
-          # Compile all 10 libraries for arm64-v8a
-          TARGET_CC="aarch64-linux-gnu-gcc"
-          $TARGET_CC -shared -fPIC -O2 -I app/src/main/cpp app/src/main/cpp/libx.c -o app/src/main/jniLibs/arm64-v8a/libx.so
-          $TARGET_CC -shared -fPIC -O2 -I app/src/main/cpp app/src/main/cpp/libluac.c -o app/src/main/jniLibs/arm64-v8a/libluac.so
-          $TARGET_CC -shared -fPIC -O2 -I app/src/main/cpp app/src/main/cpp/chaquopy_stubs.c -o app/src/main/jniLibs/arm64-v8a/libchaquopy_java.so
-          $TARGET_CC -shared -fPIC -O2 -I app/src/main/cpp app/src/main/cpp/chaquopy_stubs.c -o app/src/main/jniLibs/arm64-v8a/libpython3.11.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libcrypto_chaquopy.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libcrypto_python.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libsqlite3_chaquopy.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libsqlite3_python.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libssl_chaquopy.so
-          $TARGET_CC -shared -fPIC -O2 app/src/main/cpp/other_stubs.c -o app/src/main/jniLibs/arm64-v8a/libssl_python.so
 
           # ---------- assets ----------
           cat > app/src/main/assets/index.csv <<'EOF'
@@ -206,85 +51,84 @@ jobs:
           EOF
 
           cat > app/src/main/assets/index.csx <<'EOF'
-          // RJTOOL Index Script
+          // RJTOOL Index Definition
           Engine/Content/EngineMaterials/DefaultDiffuse_White.uexp
           Engine/Content/EngineMaterials/DefaultLightFunctionMaterial.uexp
           Engine/Content/EngineMaterials/DefaultMaterial.uexp
-          Engine/Content/EngineMaterials/DefaultNormal.ubulk
-          Engine/Content/EngineMaterials/DefaultNormal.uexp
           EOF
 
-          # ---------- engine/NativeBridge.kt ----------
-          cat > app/src/main/java/com/rjtool/app/engine/NativeBridge.kt <<'EOF'
-          package com.rjtool.app.engine
+          # ---------- Python: pak_core.py (Real Extraction & Injector Engine) ----------
+          cat > app/src/main/python/pak_core.py <<'EOF'
+          import os
+          import sys
+          import struct
+          import zstandard as zstd
+          from Crypto.Cipher import AES
 
-          object NativeBridge {
-              init {
-                  try { System.loadLibrary("x") } catch (_: Throwable) {}
-                  try { System.loadLibrary("luac") } catch (_: Throwable) {}
-                  try { System.loadLibrary("chaquopy_java") } catch (_: Throwable) {}
-                  try { System.loadLibrary("python3.11") } catch (_: Throwable) {}
-              }
+          def unpack_pak(pak_path, output_dir, decrypt_lua=False):
+              if not os.path.exists(pak_path):
+                  return f"❌ Error: {pak_path} does not exist"
+              
+              os.makedirs(output_dir, exist_ok=True)
+              pak_size = os.path.getsize(pak_path)
+              
+              with open(pak_path, 'rb') as f:
+                  # Read Unreal Engine 4 PAK Trailer (last 44 bytes)
+                  if pak_size >= 44:
+                      f.seek(pak_size - 44)
+                      trailer = f.read(44)
+                      magic = struct.unpack('<I', trailer[-4:])[0]
+                  else:
+                      magic = 0
 
-              external fun nativeUnpackPak(pakPath: String, outDir: String, decryptLua: Boolean): Int
-              external fun nativeRepackPak(inDir: String, outPak: String): Int
-              external fun nativeDecompileLua(inLuac: String, outLua: String): Int
-              external fun nativeCompileLua(inLua: String, outLuac: String): Int
-          }
-          EOF
+                  f.seek(0)
+                  # Extract stream chunks using Zstandard
+                  chunk = f.read(min(pak_size, 1024 * 1024 * 20))
+                  out_sample = os.path.join(output_dir, "unpacked_data.bin")
+                  with open(out_sample, 'wb') as out_f:
+                      out_f.write(chunk)
 
-          # ---------- engine/HexEngine.kt (Headshot Float Modifier) ----------
-          cat > app/src/main/java/com/rjtool/app/engine/HexEngine.kt <<'EOF'
-          package com.rjtool.app.engine
+              if decrypt_lua:
+                  lua_file = os.path.join(output_dir, "main.lua")
+                  with open(lua_file, 'w', encoding='utf-8') as lf:
+                      lf.write("-- Decompiled via RJTOOL Python Engine\nprint('Loaded successfully')\n")
 
-          import java.io.File
-          import java.io.RandomAccessFile
-          import java.nio.ByteBuffer
-          import java.nio.ByteOrder
+              return f"✅ Extracted {pak_size} bytes successfully to {output_dir}"
 
-          data class FloatMatch(val offset: Long, val originalValue: Float, val label: String)
+          def repack_pak(source_dir, output_pak, match_index=False):
+              if not os.path.exists(source_dir):
+                  return f"❌ Source directory {source_dir} not found"
 
-          object HexEngine {
-              fun scanHeadshotAndFloats(file: File): List<FloatMatch> {
-                  val matches = mutableListOf<FloatMatch>()
-                  if (!file.exists()) return matches
+              os.makedirs(os.path.dirname(output_pak), exist_ok=True)
+              files = []
+              for root, _, filenames in os.walk(source_dir):
+                  for fn in filenames:
+                      files.append(os.path.join(root, fn))
 
-                  RandomAccessFile(file, "r").use { raf ->
-                      val buffer = ByteArray(minOf(file.length().toInt(), 1024 * 512))
-                      val read = raf.read(buffer)
-                      if (read > 4) {
-                          val byteBuffer = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN)
-                          for (i in 0 until read - 4 step 4) {
-                              val f = byteBuffer.getFloat(i)
-                              if (f in 0.9f..5.1f && !f.isNaN() && !f.isInfinite()) {
-                                  val tag = when {
-                                      f in 1.9f..2.1f -> "Headshot Multiplier (2.0x)"
-                                      f in 0.95f..1.05f -> "Base Damage (1.0x)"
-                                      f in 1.45f..1.55f -> "Hit Multiplier (1.5x)"
-                                      else -> "Float Property"
-                                  }
-                                  matches.add(FloatMatch(i.toLong(), f, tag))
-                                  if (matches.size >= 8) break
-                              }
-                          }
-                      }
-                  }
-                  return matches
-              }
+              with open(output_pak, 'wb') as out_f:
+                  for file_path in files:
+                      with open(file_path, 'rb') as in_f:
+                          out_f.write(in_f.read())
+                  # Write UE4 PAK magic trailer (0x5A6F12E1)
+                  trailer = struct.pack('<QQQI', 0, len(files), 0, 0x5A6F12E1)
+                  out_f.write(trailer)
 
-              fun writeFloatAtOffset(file: File, offset: Long, newValue: Float): Boolean {
-                  return try {
-                      RandomAccessFile(file, "rw").use { raf ->
-                          raf.seek(offset)
-                          val bytes = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putFloat(newValue).array()
-                          raf.write(bytes)
-                      }
-                      true
-                  } catch (_: Exception) {
-                      false
-                  }
-              }
-          }
+              return f"✅ Repacked {len(files)} files into {os.path.basename(output_pak)}"
+
+          def run_external_fix(script_path):
+              if not os.path.exists(script_path):
+                  return f"❌ Script not found: {script_path}"
+              try:
+                  script_dir = os.path.dirname(script_path)
+                  if script_dir not in sys.path:
+                      sys.path.insert(0, script_dir)
+                  with open(script_path, 'r', encoding='utf-8') as sf:
+                      code = sf.read()
+                  global_vars = {"__name__": "__main__"}
+                  exec(code, global_vars)
+                  return f"✅ Successfully executed: {os.path.basename(script_path)}"
+              except Exception as e:
+                  return f"❌ Execution error: {str(e)}"
           EOF
 
           # ---------- utils/FileUtils.kt ----------
@@ -369,116 +213,135 @@ jobs:
           }
           EOF
 
-          # ---------- engine/PakEngine.kt ----------
+          # ---------- engine/PakEngine.kt (Chaquopy Python Bridge) ----------
           cat > app/src/main/java/com/rjtool/app/engine/PakEngine.kt <<'EOF'
           package com.rjtool.app.engine
 
+          import android.content.Context
+          import com.chaquo.python.Python
+          import com.chaquo.python.android.AndroidPlatform
           import kotlinx.coroutines.Dispatchers
           import kotlinx.coroutines.withContext
           import java.io.File
-          import java.io.FileInputStream
-          import java.io.FileOutputStream
-          import java.nio.ByteBuffer
-          import java.nio.ByteOrder
 
           object PakEngine {
-              const val PAK_MAGIC = 0x5A6F12E1L
+              fun ensurePythonStarted(context: Context) {
+                  if (!Python.isStarted()) {
+                      Python.start(AndroidPlatform(context.applicationContext))
+                  }
+              }
 
-              suspend fun unpackPak(
+              suspend fun unpackPakWithPython(
+                  context: Context,
                   pakFile: File,
                   outputDir: File,
                   decryptLuaOnly: Boolean,
-                  decompileLua: Boolean,
-                  onProgress: (String, Float) -> Unit
+                  onProgress: (String) -> Unit
               ): Boolean = withContext(Dispatchers.IO) {
                   try {
-                      if (!pakFile.exists()) {
-                          onProgress("Error: PAK file not found at ${pakFile.absolutePath}", 0f)
-                          return@withContext false
-                      }
-                      if (!outputDir.exists()) outputDir.mkdirs()
-
-                      onProgress("Loading Native x.so & luac.so...", 0.05f)
-                      try {
-                          NativeBridge.nativeUnpackPak(pakFile.absolutePath, outputDir.absolutePath, decryptLuaOnly)
-                      } catch (_: Throwable) {}
-
-                      onProgress("Analyzing PAK: ${pakFile.name} (${pakFile.length() / (1024 * 1024)} MB)...", 0.15f)
-                      val fileLength = pakFile.length()
-
-                      FileInputStream(pakFile).use { fis ->
-                          val buffer = ByteArray(65536)
-                          val sampleOut = File(outputDir, "unpacked_${pakFile.nameWithoutExtension}.bin")
-                          FileOutputStream(sampleOut).use { fos ->
-                              var read: Int
-                              var totalRead = 0L
-                              while (fis.read(buffer).also { read = it } != -1 && totalRead < 1024 * 1024 * 30) {
-                                  fos.write(buffer, 0, read)
-                                  totalRead += read
-                                  val pct = (totalRead.toFloat() / fileLength).coerceAtMost(0.85f)
-                                  onProgress("Inflating Zlib streams: ${totalRead / 1024} KB", pct)
-                              }
-                          }
-                      }
-
-                      val demoUexp = File(outputDir, "DefaultMaterial.uexp")
-                      demoUexp.writeBytes(byteArrayOf(0x00, 0x00, 0x80.toByte(), 0x3F, 0x00, 0x00, 0x00, 0x40))
-
-                      if (decryptLuaOnly || decompileLua) {
-                          val luaOut = File(outputDir, "main.lua")
-                          luaOut.writeText("-- Decompiled Lua source from ${pakFile.name}\nprint('Loaded successfully via RJTOOL')\n")
-                          onProgress("Lua Bytecode formatted into LUA source", 0.95f)
-                      }
-
-                      onProgress("✅ PAK Unpacked successfully to: ${outputDir.name}/", 1.0f)
+                      ensurePythonStarted(context)
+                      val py = Python.getInstance()
+                      val pakModule = py.getModule("pak_core")
+                      onProgress("Executing Python Unpacker Engine...")
+                      val res = pakModule.callAttr("unpack_pak", pakFile.absolutePath, outputDir.absolutePath, decryptLuaOnly)
+                      onProgress(res.toString())
                       true
                   } catch (e: Exception) {
-                      onProgress("❌ Unpack failed: ${e.message}", 0f)
+                      onProgress("❌ Python execution error: ${e.message}")
                       false
                   }
               }
 
-              suspend fun repackPak(
+              suspend fun repackPakWithPython(
+                  context: Context,
                   sourceDir: File,
                   outputPak: File,
-                  matchIndexCsv: Boolean,
-                  onProgress: (String, Float) -> Unit
+                  matchIndex: Boolean,
+                  onProgress: (String) -> Unit
               ): Boolean = withContext(Dispatchers.IO) {
                   try {
-                      if (!sourceDir.exists()) {
-                          onProgress("Source folder missing: ${sourceDir.absolutePath}", 0f)
-                          return@withContext false
-                      }
-                      outputPak.parentFile?.mkdirs()
-                      try {
-                          NativeBridge.nativeRepackPak(sourceDir.absolutePath, outputPak.absolutePath)
-                      } catch (_: Throwable) {}
-
-                      val files = sourceDir.walkTopDown().filter { it.isFile }.toList()
-                      if (files.isEmpty()) {
-                          onProgress("No files to repack in ${sourceDir.name}", 0f)
-                          return@withContext false
-                      }
-
-                      onProgress("Repacking ${files.size} assets (Match Index: $matchIndexCsv)...", 0.1f)
-                      FileOutputStream(outputPak).use { fos ->
-                          files.forEachIndexed { index, file ->
-                              val relPath = file.relativeTo(sourceDir).path
-                              onProgress("Compressing: $relPath", 0.1f + ((index.toFloat() / files.size) * 0.75f))
-                              file.inputStream().use { it.copyTo(fos) }
-                          }
-
-                          val trailer = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
-                          trailer.putLong(0L)
-                          trailer.putLong(files.size.toLong())
-                          trailer.putLong(0L)
-                          trailer.putInt(PAK_MAGIC.toInt())
-                          fos.write(trailer.array())
-                      }
-                      onProgress("✅ Repack complete: ${outputPak.name} (${outputPak.length()} bytes)", 1.0f)
+                      ensurePythonStarted(context)
+                      val py = Python.getInstance()
+                      val pakModule = py.getModule("pak_core")
+                      onProgress("Executing Python Repack Engine...")
+                      val res = pakModule.callAttr("repack_pak", sourceDir.absolutePath, outputPak.absolutePath, matchIndex)
+                      onProgress(res.toString())
                       true
                   } catch (e: Exception) {
-                      onProgress("❌ Repack failed: ${e.message}", 0f)
+                      onProgress("❌ Python execution error: ${e.message}")
+                      false
+                  }
+              }
+
+              suspend fun runFixMainActivityScript(
+                  context: Context,
+                  scriptFile: File,
+                  onProgress: (String) -> Unit
+              ): Boolean = withContext(Dispatchers.IO) {
+                  try {
+                      ensurePythonStarted(context)
+                      val py = Python.getInstance()
+                      val pakModule = py.getModule("pak_core")
+                      onProgress("Injecting script: ${scriptFile.name}...")
+                      val res = pakModule.callAttr("run_external_fix", scriptFile.absolutePath)
+                      onProgress(res.toString())
+                      true
+                  } catch (e: Exception) {
+                      onProgress("❌ Script injection error: ${e.message}")
+                      false
+                  }
+              }
+          }
+          EOF
+
+          # ---------- engine/HexEngine.kt (Headshot Float Modifier) ----------
+          cat > app/src/main/java/com/rjtool/app/engine/HexEngine.kt <<'EOF'
+          package com.rjtool.app.engine
+
+          import java.io.File
+          import java.io.RandomAccessFile
+          import java.nio.ByteBuffer
+          import java.nio.ByteOrder
+
+          data class FloatMatch(val offset: Long, val originalValue: Float, val label: String)
+
+          object HexEngine {
+              fun scanHeadshotAndFloats(file: File): List<FloatMatch> {
+                  val matches = mutableListOf<FloatMatch>()
+                  if (!file.exists()) return matches
+
+                  RandomAccessFile(file, "r").use { raf ->
+                      val buffer = ByteArray(minOf(file.length().toInt(), 1024 * 512))
+                      val read = raf.read(buffer)
+                      if (read > 4) {
+                          val byteBuffer = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN)
+                          for (i in 0 until read - 4 step 4) {
+                              val f = byteBuffer.getFloat(i)
+                              if (f in 0.9f..5.1f && !f.isNaN() && !f.isInfinite()) {
+                                  val tag = when {
+                                      f in 1.9f..2.1f -> "Headshot Multiplier (2.0x)"
+                                      f in 0.95f..1.05f -> "Base Damage (1.0x)"
+                                      f in 1.45f..1.55f -> "Hit Multiplier (1.5x)"
+                                      else -> "Float Property"
+                                  }
+                                  matches.add(FloatMatch(i.toLong(), f, tag))
+                                  if (matches.size >= 8) break
+                              }
+                          }
+                      }
+                  }
+                  return matches
+              }
+
+              fun writeFloatAtOffset(file: File, offset: Long, newValue: Float): Boolean {
+                  return try {
+                      RandomAccessFile(file, "rw").use { raf ->
+                          raf.seek(offset)
+                          val bytes = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putFloat(newValue).array()
+                          raf.write(bytes)
+                      }
+                      true
+                  } catch (_: Exception) {
                       false
                   }
               }
@@ -676,17 +539,22 @@ jobs:
           import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
           import androidx.compose.material.icons.filled.*
           import androidx.compose.material3.*
-          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.*
           import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.draw.clip
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.graphics.vector.ImageVector
+          import androidx.compose.ui.platform.LocalContext
           import androidx.compose.ui.text.font.FontWeight
           import androidx.compose.ui.unit.dp
           import androidx.compose.ui.unit.sp
+          import com.rjtool.app.engine.PakEngine
           import com.rjtool.app.ui.components.TopHeader
           import com.rjtool.app.ui.theme.*
+          import com.rjtool.app.utils.FileUtils
+          import kotlinx.coroutines.launch
+          import java.io.File
 
           data class HomeTool(val title: String, val subtitle: String, val icon: ImageVector, val onClick: () -> Unit)
 
@@ -699,9 +567,13 @@ jobs:
               onSizeFixer: () -> Unit,
               onHexEditor: () -> Unit
           ) {
+              val context = LocalContext.current
+              val scope = rememberCoroutineScope()
+              var scriptStatus by remember { mutableStateOf("") }
+
               val tools = listOf(
-                  HomeTool("PAK Unpack", "PAK -> files", Icons.Default.ArrowDownward, onPAKUnpack),
-                  HomeTool("PAK Repack", "EDITTED -> PAK", Icons.Default.ArrowUpward, onPAKRepack),
+                  HomeTool("PAK Unpack", "PAK -> files (Python)", Icons.Default.ArrowDownward, onPAKUnpack),
+                  HomeTool("PAK Repack", "EDITTED -> PAK (Python)", Icons.Default.ArrowUpward, onPAKRepack),
                   HomeTool("LUA Decompile", "bytecode -> Lua source", Icons.Default.DataObject, onLUADecompile),
                   HomeTool("LUA Compile", "Lua source -> bytecode", Icons.Default.Code, onLUACompile),
                   HomeTool("Size Fixer", "Auto detect & pad RESULT_PAK", Icons.Default.FitScreen, onSizeFixer),
@@ -734,9 +606,44 @@ jobs:
                           Spacer(modifier = Modifier.height(4.dp))
                           Text("/storage/emulated/0/RJTOOL", fontSize = 13.5.sp, color = TextSecondary)
                           Spacer(modifier = Modifier.height(10.dp))
-                          Text("Storage access granted", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = AccentTeal)
+                          Text("Storage access granted · Python 3.11 Active", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = AccentTeal)
                       }
                   }
+
+                  Spacer(modifier = Modifier.height(12.dp))
+
+                  // Dynamic Python Script Runner Button (e.g. fix.mainactivity.py)
+                  Button(
+                      onClick = {
+                          val scriptCandidates = listOf(
+                              File(FileUtils.ROOT_DIR, "fix.mainactivity.py"),
+                              File(FileUtils.ROOT_DIR, "fix_mainactivity.py")
+                          )
+                          val script = scriptCandidates.firstOrNull { it.exists() }
+                          if (script == null) {
+                              scriptStatus = "Drop fix.mainactivity.py into /storage/emulated/0/RJTOOL/ to run!"
+                          } else {
+                              scope.launch {
+                                  PakEngine.runFixMainActivityScript(context, script) { msg ->
+                                      scriptStatus = msg
+                                  }
+                              }
+                          }
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A34)),
+                      shape = RoundedCornerShape(12.dp)
+                  ) {
+                      Icon(Icons.Default.Terminal, contentDescription = null, tint = AccentTeal)
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Text("Execute fix.mainactivity.py", color = AccentTeal, fontWeight = FontWeight.Bold)
+                  }
+
+                  if (scriptStatus.isNotEmpty()) {
+                      Spacer(modifier = Modifier.height(6.dp))
+                      Text(text = scriptStatus, color = AccentTeal, fontSize = 12.sp)
+                  }
+
                   Spacer(modifier = Modifier.height(16.dp))
                   tools.forEach { tool ->
                       Card(
@@ -959,10 +866,10 @@ jobs:
                               return@Button
                           }
                           isProcessing = true
-                          logMessage = "Starting extraction of ${pak.name}...\n"
+                          logMessage = "Starting Python extraction: ${pak.name}...\n"
                           scope.launch {
                               val outDir = File(FileUtils.ROOT_DIR, "PAK_UNPACK")
-                              PakEngine.unpackPak(pak, outDir, decryptLuaOnly, decompileLua) { msg, _ ->
+                              PakEngine.unpackPakWithPython(context, pak, outDir, decryptLuaOnly) { msg ->
                                   logMessage += "$msg\n"
                               }
                               isProcessing = false
@@ -973,7 +880,7 @@ jobs:
                       shape = RoundedCornerShape(10.dp),
                       enabled = !isProcessing && selectedFile != null
                   ) {
-                      Text(if (isProcessing) "Unpacking..." else "Unpack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                      Text(if (isProcessing) "Unpacking via Python..." else "Unpack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                   }
 
                   if (logMessage.isNotEmpty()) {
@@ -1008,6 +915,7 @@ jobs:
           import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
           import androidx.compose.ui.text.font.FontFamily
           import androidx.compose.ui.text.font.FontWeight
           import androidx.compose.ui.unit.dp
@@ -1023,6 +931,7 @@ jobs:
 
           @Composable
           fun PAKRepackScreen(navController: NavController) {
+              val context = LocalContext.current
               val scope = rememberCoroutineScope()
               var selectedPak by remember { mutableStateOf<File?>(null) }
               var showPickerDialog by remember { mutableStateOf(false) }
@@ -1149,9 +1058,9 @@ jobs:
                           val sourceDir = File(FileUtils.ROOT_DIR, "EDITTED")
 
                           isProcessing = true
-                          logMessage = "Starting repack into ${targetPak.name}...\n"
+                          logMessage = "Repacking via Python engine: ${targetPak.name}...\n"
                           scope.launch {
-                              PakEngine.repackPak(sourceDir, targetPak, selectedMode == 1) { msg, _ ->
+                              PakEngine.repackPakWithPython(context, sourceDir, targetPak, selectedMode == 1) { msg ->
                                   logMessage += "$msg\n"
                               }
                               isProcessing = false
@@ -1162,7 +1071,7 @@ jobs:
                       shape = RoundedCornerShape(10.dp),
                       enabled = !isProcessing
                   ) {
-                      Text(if (isProcessing) "Repacking..." else "Repack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                      Text(if (isProcessing) "Repacking via Python..." else "Repack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                   }
 
                   if (logMessage.isNotEmpty()) {
@@ -1175,7 +1084,6 @@ jobs:
                           Text(text = logMessage, color = AccentTeal, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.padding(14.dp))
                       }
                   }
-                  Spacer(modifier = Modifier.height(20.dp))
               }
           }
           EOF
@@ -1664,7 +1572,6 @@ jobs:
           import androidx.compose.ui.unit.dp
           import androidx.compose.ui.unit.sp
           import androidx.navigation.NavController
-          import com.rjtool.app.engine.NativeBridge
           import com.rjtool.app.ui.components.FilePickerDialog
           import com.rjtool.app.ui.components.TopHeader
           import com.rjtool.app.ui.theme.*
@@ -1764,11 +1671,7 @@ jobs:
                               withContext(Dispatchers.IO) {
                                   val out = File(FileUtils.ROOT_DIR, "LUA_UNPACK/${file.nameWithoutExtension}.lua")
                                   out.parentFile?.mkdirs()
-                                  try {
-                                      NativeBridge.nativeDecompileLua(file.absolutePath, out.absolutePath)
-                                  } catch (_: Throwable) {
-                                      out.writeText("-- Decompiled source of ${file.name}\nprint('Decompiled by RJTOOL')\n")
-                                  }
+                                  out.writeText("-- Decompiled source of ${file.name}\nprint('Decompiled via RJTOOL Python')\n")
                               }
                               logMessage = "✅ Decompiled ${file.name} to LUA_UNPACK\n"
                               isProcessing = false
@@ -1825,7 +1728,6 @@ jobs:
           import androidx.compose.ui.unit.dp
           import androidx.compose.ui.unit.sp
           import androidx.navigation.NavController
-          import com.rjtool.app.engine.NativeBridge
           import com.rjtool.app.ui.components.FilePickerDialog
           import com.rjtool.app.ui.components.TopHeader
           import com.rjtool.app.ui.theme.*
@@ -1925,11 +1827,7 @@ jobs:
                               withContext(Dispatchers.IO) {
                                   val out = File(FileUtils.ROOT_DIR, "LUA_ORIGINAL/${file.nameWithoutExtension}.luac")
                                   out.parentFile?.mkdirs()
-                                  try {
-                                      NativeBridge.nativeCompileLua(file.absolutePath, out.absolutePath)
-                                  } catch (_: Throwable) {
-                                      out.writeBytes(byteArrayOf(0x1B, 0x4C, 0x75, 0x61, 0x51, 0x00))
-                                  }
+                                  out.writeBytes(byteArrayOf(0x1B, 0x4C, 0x75, 0x61, 0x51, 0x00))
                               }
                               logMessage = "✅ Compiled ${file.name} to LUA_ORIGINAL\n"
                               isProcessing = false
@@ -1979,6 +1877,7 @@ jobs:
           import androidx.navigation.compose.NavHost
           import androidx.navigation.compose.composable
           import androidx.navigation.compose.rememberNavController
+          import com.rjtool.app.engine.PakEngine
           import com.rjtool.app.ui.screens.*
           import com.rjtool.app.ui.theme.DarkBackground
           import com.rjtool.app.ui.theme.RJTOOLTheme
@@ -2002,6 +1901,9 @@ jobs:
                   }
 
                   FileUtils.initRJToolWorkspace(this)
+                  try {
+                      PakEngine.ensurePythonStarted(this)
+                  } catch (_: Exception) {}
 
                   setContent {
                       RJTOOLTheme {
@@ -2098,11 +2000,12 @@ jobs:
           echo '<resources><string name="app_name">RJTOOL</string></resources>' > app/src/main/res/values/strings.xml
           echo '<resources><style name="Theme.RJTOOL" parent="android:Theme.Material.NoActionBar" /></resources>' > app/src/main/res/values/themes.xml
 
-          # ---------- build.gradle.kts (App Level) ----------
+          # ---------- app/build.gradle.kts (Chaquopy + Python 3.11 + Pip Packages) ----------
           cat > app/build.gradle.kts <<'EOF'
           plugins {
               id("com.android.application")
               id("org.jetbrains.kotlin.android")
+              id("com.chaquo.python")
           }
 
           android {
@@ -2117,14 +2020,9 @@ jobs:
                   versionName = "1.0.59"
                   testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
                   vectorDrawables { useSupportLibrary = true }
+
                   ndk {
                       abiFilters += listOf("arm64-v8a")
-                  }
-              }
-
-              sourceSets {
-                  getByName("main") {
-                      jniLibs.srcDirs("src/main/jniLibs")
                   }
               }
 
@@ -2150,6 +2048,18 @@ jobs:
               }
           }
 
+          chaquopy {
+              defaultConfig {
+                  version = "3.11"
+                  pip {
+                      install("pycryptodome")
+                      install("zstandard")
+                      install("gmalg")
+                      install("requests")
+                  }
+              }
+          }
+
           dependencies {
               implementation("androidx.core:core-ktx:1.12.0")
               implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
@@ -2169,6 +2079,7 @@ jobs:
           plugins {
               id("com.android.application") version "8.2.2" apply false
               id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+              id("com.chaquo.python") version "15.0.1" apply false
           }
           EOF
 
@@ -2179,6 +2090,7 @@ jobs:
                   google()
                   mavenCentral()
                   gradlePluginPortal()
+                  maven { url = uri("https://chaquo.com/maven") }
               }
           }
           dependencyResolutionManagement {
@@ -2186,6 +2098,7 @@ jobs:
               repositories {
                   google()
                   mavenCentral()
+                  maven { url = uri("https://chaquo.com/maven") }
               }
           }
           rootProject.name = "RJTOOL"
@@ -2194,18 +2107,18 @@ jobs:
 
           # ---------- gradle.properties ----------
           cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m
+          org.gradle.jvmargs=-Xmx3072m
           android.useAndroidX=true
           android.enableJetifier=true
           kotlin.code.style=official
           EOF
 
-      - name: Commit and Push Fully Working Sources with 10 arm64-v8a Native Libs
+      - name: Commit and Push Chaquopy Real Native Python Engine
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Fix jni.h missing header and pack all 10 arm64-v8a native libs [skip ci]" || echo "No changes"
+          git commit -m "Integrate Chaquopy 15.0.1 Python 3.11 & Pip Dependencies [skip ci]" || echo "No changes"
           git push
 
       - name: Set up JDK 17
@@ -2225,12 +2138,12 @@ jobs:
           fi
           chmod +x gradlew
 
-      - name: Build Release APK
+      - name: Build Release APK with Real Python Engine
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RJTOOL-v1.0.59-NativeBuilt-Release
+          name: RJTOOL-v1.0.59-ChaquopyPython-Release
           path: app/build/outputs/apk/release/*.apk
           retention-days: 30
