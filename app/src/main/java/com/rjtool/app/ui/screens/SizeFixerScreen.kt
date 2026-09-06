@@ -20,19 +20,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.rjtool.app.engine.PakEngine
+import com.rjtool.app.engine.SizeFixerEngine
 import com.rjtool.app.ui.components.TopHeader
 import com.rjtool.app.utils.FileUtils
 import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
-fun PAKRepackScreen(navController: NavController) {
+fun SizeFixerScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var outputName by remember { mutableStateOf("repacked_mod.pak") }
-    var isProcessing by remember { mutableStateOf(false) }
+    var selectedFileName by remember { mutableStateOf("") }
+    var targetSizeInput by remember { mutableStateOf("15.01M") }
     var logMessage by remember { mutableStateOf("") }
+    var isProcessing by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -52,8 +53,8 @@ fun PAKRepackScreen(navController: NavController) {
             Text("Back", color = Color(0xFF00796B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Text("PAK Repack", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
-        Text("EDITTED -> PAK", fontSize = 14.sp, color = Color(0xFF757575))
+        Text("Size Fixer", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+        Text("Pad file to exact required size", fontSize = 14.sp, color = Color(0xFF757575))
         Spacer(modifier = Modifier.height(20.dp))
 
         Card(
@@ -62,34 +63,50 @@ fun PAKRepackScreen(navController: NavController) {
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
-                Text("Source Folder:", fontWeight = FontWeight.Bold)
-                Text("/storage/emulated/0/RJTOOL/EDITTED", color = Color(0xFF00796B))
+                Text("Workspace files in RESULT_PAK or EDITTED", fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = selectedFileName,
+                    onValueChange = { selectedFileName = it },
+                    label = { Text("Filename (e.g. repacked.pak)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
                 Spacer(modifier = Modifier.height(10.dp))
-                Text("Output Folder:", fontWeight = FontWeight.Bold)
-                Text("/storage/emulated/0/RJTOOL/RESULT_PAK", color = Color(0xFF757575))
+                OutlinedTextField(
+                    value = targetSizeInput,
+                    onValueChange = { targetSizeInput = it },
+                    label = { Text("Target Size (e.g. 15.01M or 15738880)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
             }
         }
-        Spacer(modifier = Modifier.height(14.dp))
-
-        OutlinedTextField(
-            value = outputName,
-            onValueChange = { outputName = it },
-            label = { Text("Output PAK Filename") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
         Button(
             onClick = {
-                val sourceDir = File(FileUtils.ROOT_DIR, "EDITTED")
-                val targetPak = File(File(FileUtils.ROOT_DIR, "RESULT_PAK"), outputName)
+                val bytes = SizeFixerEngine.parseSizeToBytes(targetSizeInput)
+                if (bytes == null || bytes <= 0) {
+                    Toast.makeText(context, "Invalid target size format", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                val possibleFiles = listOf(
+                    File(FileUtils.ROOT_DIR, "RESULT_PAK/$selectedFileName"),
+                    File(FileUtils.ROOT_DIR, "EDITTED/$selectedFileName"),
+                    File(FileUtils.ROOT_DIR, selectedFileName)
+                )
+                val target = possibleFiles.firstOrNull { it.exists() && it.isFile }
+                if (target == null) {
+                    logMessage += "❌ File $selectedFileName not found in RJTOOL folders!\n"
+                    return@Button
+                }
+
                 isProcessing = true
-                logMessage = "Starting repack from EDITTED...\n"
                 scope.launch {
-                    PakEngine.repackFolder(sourceDir, targetPak) { msg, _ ->
-                        logMessage += "$msg\n"
+                    SizeFixerEngine.fixFileSize(target, bytes) {
+                        logMessage += "$it\n"
                     }
                     isProcessing = false
                 }
@@ -99,7 +116,7 @@ fun PAKRepackScreen(navController: NavController) {
             shape = RoundedCornerShape(10.dp),
             enabled = !isProcessing
         ) {
-            Text(if (isProcessing) "Repacking..." else "Repack to PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Apply Exact Size", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
         }
 
         if (logMessage.isNotEmpty()) {

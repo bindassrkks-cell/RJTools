@@ -3,13 +3,12 @@ package com.rjtool.app.ui.screens
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.DataObject
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,13 +28,17 @@ fun HomeScreen(
     onPAKUnpack: () -> Unit,
     onPAKRepack: () -> Unit,
     onLUADecompile: () -> Unit,
-    onLUACompile: () -> Unit
+    onLUACompile: () -> Unit,
+    onSizeFixer: () -> Unit,
+    onHexEditor: () -> Unit
 ) {
     val tools = listOf(
         HomeTool("PAK Unpack", "PAK -> files", Icons.Default.ArrowDownward, onPAKUnpack),
         HomeTool("PAK Repack", "EDITTED -> PAK", Icons.Default.ArrowUpward, onPAKRepack),
         HomeTool("LUA Decompile", "bytecode -> Lua source", Icons.Default.DataObject, onLUADecompile),
-        HomeTool("LUA Compile", "Lua source -> bytecode", Icons.Default.Code, onLUACompile)
+        HomeTool("LUA Compile", "Lua source -> bytecode", Icons.Default.Code, onLUACompile),
+        HomeTool("Size Fixer", "Fix / Pad target file size", Icons.Default.FitScreen, onSizeFixer),
+        HomeTool("Hex Editor", "Edit .uexp binary bytes", Icons.Default.Edit, onHexEditor)
     )
 
     Column(
@@ -43,6 +46,7 @@ fun HomeScreen(
             .fillMaxSize()
             .background(Color(0xFFF7F9FA))
             .padding(horizontal = 20.dp, vertical = 16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         TopHeader()
         Spacer(modifier = Modifier.height(18.dp))
@@ -103,5 +107,6 @@ fun HomeScreen(
                 }
             }
         }
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }

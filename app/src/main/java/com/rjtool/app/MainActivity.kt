@@ -26,13 +26,17 @@ class MainActivity : ComponentActivity() {
                             onPAKUnpack = { navController.navigate("pak_unpack") },
                             onPAKRepack = { navController.navigate("pak_repack") },
                             onLUADecompile = { navController.navigate("lua_decompile") },
-                            onLUACompile = { navController.navigate("lua_compile") }
+                            onLUACompile = { navController.navigate("lua_compile") },
+                            onSizeFixer = { navController.navigate("size_fixer") },
+                            onHexEditor = { navController.navigate("hex_editor") }
                         )
                     }
                     composable("pak_unpack") { PAKUnpackScreen(navController) }
                     composable("pak_repack") { PAKRepackScreen(navController) }
                     composable("lua_decompile") { LUADecompileScreen(navController) }
                     composable("lua_compile") { LUACompileScreen(navController) }
+                    composable("size_fixer") { SizeFixerScreen(navController) }
+                    composable("hex_editor") { HexEditorScreen(navController) }
                 }
             }
         }
