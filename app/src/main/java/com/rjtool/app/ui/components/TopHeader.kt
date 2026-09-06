@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rjtool.app.ui.theme.*
 
 @Composable
 fun TopHeader(modifier: Modifier = Modifier) {
@@ -25,25 +26,25 @@ fun TopHeader(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .size(46.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFFD6E2E6)),
+                .background(Color(0xFF2E3836)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Person, "Avatar", tint = Color(0xFF5F6368), modifier = Modifier.size(28.dp))
+            Icon(Icons.Default.Person, "Avatar", tint = AccentTeal, modifier = Modifier.size(28.dp))
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("RJTOOL v1.0.59", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
-            Text("TG @byrj6", fontSize = 14.sp, color = Color(0xFF757575))
+            Text("RJTOOL v1.0.59", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text("TG @byrj6", fontSize = 14.sp, color = TextSecondary)
         }
         Box(
             modifier = Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFFE8F5E9))
+                .background(Color(0xFF1A332E))
                 .clickable { },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Settings, "Settings", tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp))
+            Icon(Icons.Default.Settings, "Settings", tint = AccentTeal, modifier = Modifier.size(22.dp))
         }
     }
 }

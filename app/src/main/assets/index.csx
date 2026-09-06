@@ -1,4 +1,4 @@
-// RJTOOL Index Script Definition
+// RJTOOL Index CSX Script Definition
 Engine/Content/EngineMaterials/DefaultDiffuse_White.uexp
 Engine/Content/EngineMaterials/DefaultLightFunctionMaterial.uexp
 Engine/Content/EngineMaterials/DefaultMaterial.uexp

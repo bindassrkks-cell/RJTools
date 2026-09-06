@@ -1,6 +1,5 @@
 package com.rjtool.app.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,24 +12,24 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.rjtool.app.engine.SizeFixerEngine
 import com.rjtool.app.ui.components.TopHeader
+import com.rjtool.app.ui.theme.*
 import com.rjtool.app.utils.FileUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.RandomAccessFile
 
 @Composable
 fun SizeFixerScreen(navController: NavController) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var selectedFileName by remember { mutableStateOf("") }
+    var filenameInput by remember { mutableStateOf("") }
     var targetSizeInput by remember { mutableStateOf("15.01M") }
     var logMessage by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
@@ -38,7 +37,7 @@ fun SizeFixerScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF7F9FA))
+            .background(DarkBackground)
             .padding(horizontal = 20.dp, vertical = 16.dp)
             .verticalScroll(rememberScrollState())
     ) {
@@ -48,26 +47,26 @@ fun SizeFixerScreen(navController: NavController) {
             modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = Color(0xFF00796B), modifier = Modifier.size(15.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = AccentTeal, modifier = Modifier.size(15.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text("Back", color = Color(0xFF00796B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Back", color = AccentTeal, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Text("Size Fixer", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
-        Text("Pad file to exact required size", fontSize = 14.sp, color = Color(0xFF757575))
+        Text("Size Fixer", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("Pad file to exact required size", fontSize = 14.sp, color = TextSecondary)
         Spacer(modifier = Modifier.height(20.dp))
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = DarkCardBg),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
-                Text("Workspace files in RESULT_PAK or EDITTED", fontWeight = FontWeight.Bold)
+                Text("Workspace files in RESULT_PAK or EDITTED", fontWeight = FontWeight.Bold, color = TextPrimary)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = selectedFileName,
-                    onValueChange = { selectedFileName = it },
+                    value = filenameInput,
+                    onValueChange = { filenameInput = it },
                     label = { Text("Filename (e.g. repacked.pak)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
@@ -76,7 +75,7 @@ fun SizeFixerScreen(navController: NavController) {
                 OutlinedTextField(
                     value = targetSizeInput,
                     onValueChange = { targetSizeInput = it },
-                    label = { Text("Target Size (e.g. 15.01M or 15738880)") },
+                    label = { Text("Target Size (e.g. 15.01M)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -87,46 +86,52 @@ fun SizeFixerScreen(navController: NavController) {
 
         Button(
             onClick = {
-                val bytes = SizeFixerEngine.parseSizeToBytes(targetSizeInput)
-                if (bytes == null || bytes <= 0) {
-                    Toast.makeText(context, "Invalid target size format", Toast.LENGTH_SHORT).show()
-                    return@Button
-                }
-                val possibleFiles = listOf(
-                    File(FileUtils.ROOT_DIR, "RESULT_PAK/$selectedFileName"),
-                    File(FileUtils.ROOT_DIR, "EDITTED/$selectedFileName"),
-                    File(FileUtils.ROOT_DIR, selectedFileName)
+                val trimmed = targetSizeInput.trim().uppercase()
+                val targetBytes = when {
+                    trimmed.endsWith("MB") -> (trimmed.removeSuffix("MB").toDoubleOrNull() ?: 0.0) * 1024 * 1024
+                    trimmed.endsWith("M") -> (trimmed.removeSuffix("M").toDoubleOrNull() ?: 0.0) * 1024 * 1024
+                    trimmed.endsWith("KB") -> (trimmed.removeSuffix("KB").toDoubleOrNull() ?: 0.0) * 1024
+                    trimmed.endsWith("K") -> (trimmed.removeSuffix("K").toDoubleOrNull() ?: 0.0) * 1024
+                    else -> trimmed.toDoubleOrNull() ?: 0.0
+                }.toLong()
+
+                val candidateFiles = listOf(
+                    File(FileUtils.ROOT_DIR, "RESULT_PAK/$filenameInput"),
+                    File(FileUtils.ROOT_DIR, "EDITTED/$filenameInput"),
+                    File(FileUtils.ROOT_DIR, filenameInput)
                 )
-                val target = possibleFiles.firstOrNull { it.exists() && it.isFile }
+                val target = candidateFiles.firstOrNull { it.exists() && it.isFile }
                 if (target == null) {
-                    logMessage += "❌ File $selectedFileName not found in RJTOOL folders!\n"
+                    logMessage += "❌ File $filenameInput not found in RJTOOL folders!\n"
                     return@Button
                 }
 
                 isProcessing = true
                 scope.launch {
-                    SizeFixerEngine.fixFileSize(target, bytes) {
-                        logMessage += "$it\n"
+                    withContext(Dispatchers.IO) {
+                        val oldLen = target.length()
+                        RandomAccessFile(target, "rw").use { it.setLength(targetBytes) }
+                        logMessage += "Fixed: ${target.name}\nOld: $oldLen B -> New: ${target.length()} B\n"
                     }
                     isProcessing = false
                 }
             },
             modifier = Modifier.fillMaxWidth().height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+            colors = ButtonDefaults.buttonColors(containerColor = ButtonGreen),
             shape = RoundedCornerShape(10.dp),
             enabled = !isProcessing
         ) {
-            Text("Apply Exact Size", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Apply Exact Size", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
         if (logMessage.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(text = logMessage, color = Color(0xFF00FF66), fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.padding(14.dp))
+                Text(text = logMessage, color = AccentTeal, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.padding(14.dp))
             }
         }
     }

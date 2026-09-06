@@ -1,8 +1,6 @@
 package com.rjtool.app.ui.screens
 
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,41 +13,43 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.rjtool.app.engine.PakEngine
+import com.rjtool.app.ui.components.FilePickerDialog
 import com.rjtool.app.ui.components.TopHeader
+import com.rjtool.app.ui.theme.*
 import com.rjtool.app.utils.FileUtils
 import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
 fun PAKUnpackScreen(navController: NavController) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var selectedFilePath by remember { mutableStateOf<String?>(null) }
+    var selectedFile by remember { mutableStateOf<File?>(null) }
     var decryptLuaOnly by remember { mutableStateOf(false) }
     var decompileLua by remember { mutableStateOf(false) }
+    var showPickerDialog by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
     var logMessage by remember { mutableStateOf("") }
-    var progressVal by remember { mutableStateOf(0f) }
 
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            selectedFilePath = it.path ?: ""
-            logMessage += "Selected file: ${it.path}\n"
-        }
+    if (showPickerDialog) {
+        val files = FileUtils.getFilesInFolder("PAK_ORIGINAL", ".pak")
+        FilePickerDialog(
+            title = "Choose original PAK files",
+            files = files,
+            onDismiss = { showPickerDialog = false },
+            onFileSelected = { selectedFile = it }
+        )
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF7F9FA))
+            .background(DarkBackground)
             .padding(horizontal = 20.dp, vertical = 16.dp)
             .verticalScroll(rememberScrollState())
     ) {
@@ -61,20 +61,19 @@ fun PAKUnpackScreen(navController: NavController) {
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = Color(0xFF00796B), modifier = Modifier.size(15.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = AccentTeal, modifier = Modifier.size(15.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text("Back", color = Color(0xFF00796B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Back", color = AccentTeal, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Text("PAK Unpack", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
-        Text("PAK -> files", fontSize = 14.sp, color = Color(0xFF757575))
+        Text("PAK Unpack", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("PAK -> files", fontSize = 14.sp, color = TextSecondary)
         Spacer(modifier = Modifier.height(20.dp))
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+            colors = CardDefaults.cardColors(containerColor = DarkCardBg),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(18.dp),
@@ -82,16 +81,16 @@ fun PAKUnpackScreen(navController: NavController) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Choose PAK files · PAK_ORIGINAL", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+                    Text("Choose PAK files · PAK_ORIGINAL", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(selectedFilePath ?: "Not selected", fontSize = 13.sp, color = Color(0xFF757575))
+                    Text(selectedFile?.name ?: "Not selected", fontSize = 13.sp, color = TextSecondary)
                 }
                 Button(
-                    onClick = { filePicker.launch("*/*") },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0F2F1)),
+                    onClick = { showPickerDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A34)),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Choose", color = Color(0xFF00796B), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Choose", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
             }
         }
@@ -100,14 +99,13 @@ fun PAKUnpackScreen(navController: NavController) {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+            colors = CardDefaults.cardColors(containerColor = DarkCardBg),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
-                Text("Fixed output directory", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+                Text("Fixed output directory", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("/storage/emulated/0/RJTOOL/PAK_UNPACK", fontSize = 13.sp, color = Color(0xFF757575))
+                Text("/storage/emulated/0/RJTOOL/PAK_UNPACK", fontSize = 13.sp, color = TextSecondary)
             }
         }
 
@@ -115,9 +113,8 @@ fun PAKUnpackScreen(navController: NavController) {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+            colors = CardDefaults.cardColors(containerColor = DarkCardBg),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
                 Row(
@@ -127,10 +124,10 @@ fun PAKUnpackScreen(navController: NavController) {
                     Checkbox(
                         checked = decryptLuaOnly,
                         onCheckedChange = { decryptLuaOnly = it },
-                        colors = CheckboxDefaults.colors(checkedColor = Color(0xFF00796B))
+                        colors = CheckboxDefaults.colors(checkedColor = AccentTeal, uncheckedColor = TextSecondary)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Decrypt .lua files only", fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+                    Text("Decrypt .lua files only", fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -140,14 +137,14 @@ fun PAKUnpackScreen(navController: NavController) {
                     Checkbox(
                         checked = decompileLua,
                         onCheckedChange = { decompileLua = it },
-                        colors = CheckboxDefaults.colors(checkedColor = Color(0xFF00796B))
+                        colors = CheckboxDefaults.colors(checkedColor = AccentTeal, uncheckedColor = TextSecondary)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         "Also decompile Lua and replace the original bytecode",
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E1E1E),
+                        color = TextPrimary,
                         lineHeight = 20.sp
                     )
                 }
@@ -158,49 +155,37 @@ fun PAKUnpackScreen(navController: NavController) {
 
         Button(
             onClick = {
-                val pakDir = File(FileUtils.ROOT_DIR, "PAK_ORIGINAL")
-                val defaultPak = pakDir.listFiles()?.firstOrNull { it.name.endsWith(".pak", true) }
-                val target = if (selectedFilePath != null) File(selectedFilePath!!) else defaultPak
-
-                if (target == null || !target.exists()) {
-                    Toast.makeText(context, "Please put a .pak file in RJTOOL/PAK_ORIGINAL", Toast.LENGTH_LONG).show()
-                    logMessage += "❌ No .pak file found in ${pakDir.absolutePath}\n"
+                val pak = selectedFile
+                if (pak == null) {
+                    logMessage += "❌ Please choose a .pak file from PAK_ORIGINAL first!\n"
                     return@Button
                 }
-
                 isProcessing = true
-                logMessage += "Starting extraction of ${target.name}...\n"
+                logMessage = "Extracting ${pak.name}...\n"
                 scope.launch {
                     val outDir = File(FileUtils.ROOT_DIR, "PAK_UNPACK")
-                    PakEngine.unpackPak(target, outDir, decryptLuaOnly) { msg, prog ->
+                    PakEngine.unpackPak(pak, outDir, decryptLuaOnly, decompileLua) { msg, _ ->
                         logMessage += "$msg\n"
-                        progressVal = prog
                     }
                     isProcessing = false
                 }
             },
             modifier = Modifier.fillMaxWidth().height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+            colors = ButtonDefaults.buttonColors(containerColor = if (selectedFile != null) ButtonGreen else ButtonDisabled),
             shape = RoundedCornerShape(10.dp),
             enabled = !isProcessing
         ) {
-            Text(if (isProcessing) "Unpacking..." else "Unpack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(if (isProcessing) "Unpacking..." else "Unpack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
         if (logMessage.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    text = logMessage,
-                    color = Color(0xFF00FF66),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(14.dp)
-                )
+                Text(text = logMessage, color = AccentTeal, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.padding(14.dp))
             }
         }
         Spacer(modifier = Modifier.height(20.dp))

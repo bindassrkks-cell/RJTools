@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.rjtool.app.ui.components.TopHeader
+import com.rjtool.app.ui.theme.*
 import com.rjtool.app.utils.FileUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,16 +40,12 @@ fun HexEditorScreen(navController: NavController) {
     var rows by remember { mutableStateOf<List<HexRow>>(emptyList()) }
     var editOffsetStr by remember { mutableStateOf("") }
     var editByteHexStr by remember { mutableStateOf("") }
-    var logMessage by remember { mutableStateOf("") }
 
     fun loadPage(offset: Long) {
         scope.launch {
             withContext(Dispatchers.IO) {
                 val file = File(FileUtils.ROOT_DIR, filenameInput)
-                if (!file.exists()) {
-                    logMessage = "File not found: ${file.name}\n"
-                    return@withContext
-                }
+                if (!file.exists()) return@withContext
                 RandomAccessFile(file, "r").use { raf ->
                     raf.seek(offset)
                     val buffer = ByteArray(256)
@@ -63,7 +60,6 @@ fun HexEditorScreen(navController: NavController) {
                     }
                     rows = newRows
                     currentOffset = offset
-                    logMessage = "Loaded offset 0x${offset.toString(16).uppercase()} (${file.length()} bytes total)\n"
                 }
             }
         }
@@ -72,7 +68,7 @@ fun HexEditorScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF7F9FA))
+            .background(DarkBackground)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         TopHeader()
@@ -81,12 +77,12 @@ fun HexEditorScreen(navController: NavController) {
             modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = Color(0xFF00796B), modifier = Modifier.size(15.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = AccentTeal, modifier = Modifier.size(15.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text("Back", color = Color(0xFF00796B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Back", color = AccentTeal, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(6.dp))
-        Text("Hex Editor", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text("Hex Editor", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -99,7 +95,7 @@ fun HexEditorScreen(navController: NavController) {
             )
             Button(
                 onClick = { loadPage(0L) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B))
+                colors = ButtonDefaults.buttonColors(containerColor = ButtonGreen)
             ) {
                 Text("Load")
             }
@@ -107,7 +103,6 @@ fun HexEditorScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Byte Edit Row
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = editOffsetStr,
@@ -119,7 +114,7 @@ fun HexEditorScreen(navController: NavController) {
             OutlinedTextField(
                 value = editByteHexStr,
                 onValueChange = { editByteHexStr = it },
-                label = { Text("Byte (e.g. FF)") },
+                label = { Text("Byte (Hex)") },
                 modifier = Modifier.weight(1f),
                 singleLine = true
             )
@@ -143,7 +138,7 @@ fun HexEditorScreen(navController: NavController) {
                         }
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                colors = ButtonDefaults.buttonColors(containerColor = AccentTeal)
             ) {
                 Text("Save")
             }
@@ -151,10 +146,9 @@ fun HexEditorScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Hex Table Container
         Card(
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
             shape = RoundedCornerShape(10.dp)
         ) {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(8.dp)) {
@@ -196,7 +190,7 @@ fun HexEditorScreen(navController: NavController) {
                 text = "Offset: 0x${currentOffset.toString(16).uppercase()}",
                 modifier = Modifier.align(Alignment.CenterVertically),
                 fontSize = 12.sp,
-                color = Color(0xFF757575)
+                color = TextSecondary
             )
             OutlinedButton(onClick = { loadPage(currentOffset + 256) }) {
                 Text("Next >>")

@@ -26,6 +26,14 @@ object FileUtils {
         copyAssetIfNotExists(context, "index.csx")
     }
 
+    fun getFilesInFolder(subFolderName: String, filterExt: String? = null): List<File> {
+        val folder = File(ROOT_DIR, subFolderName)
+        if (!folder.exists() || !folder.isDirectory) return emptyList()
+        return folder.listFiles()?.filter { file ->
+            file.isFile && (filterExt == null || file.name.endsWith(filterExt, ignoreCase = true))
+        }?.sortedBy { it.name } ?: emptyList()
+    }
+
     private fun copyAssetIfNotExists(context: Context, fileName: String) {
         val target = File(ROOT_DIR, fileName)
         if (!target.exists()) {

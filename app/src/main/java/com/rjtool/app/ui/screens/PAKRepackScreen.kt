@@ -1,6 +1,5 @@
 package com.rjtool.app.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,30 +13,43 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.rjtool.app.engine.PakEngine
+import com.rjtool.app.ui.components.FilePickerDialog
 import com.rjtool.app.ui.components.TopHeader
+import com.rjtool.app.ui.theme.*
 import com.rjtool.app.utils.FileUtils
 import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
 fun PAKRepackScreen(navController: NavController) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var outputName by remember { mutableStateOf("repacked_mod.pak") }
+    var selectedPak by remember { mutableStateOf<File?>(null) }
+    var showPickerDialog by remember { mutableStateOf(false) }
+    var enableCustomRepack by remember { mutableStateOf(true) }
+    var selectedMode by remember { mutableStateOf(2) } // 1 = match index.csv, 2 = EDITTED directory structure
     var isProcessing by remember { mutableStateOf(false) }
     var logMessage by remember { mutableStateOf("") }
+
+    if (showPickerDialog) {
+        val files = FileUtils.getFilesInFolder("PAK_ORIGINAL", ".pak")
+        FilePickerDialog(
+            title = "Choose original PAK files",
+            files = files,
+            onDismiss = { showPickerDialog = false },
+            onFileSelected = { selectedPak = it }
+        )
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF7F9FA))
+            .background(DarkBackground)
             .padding(horizontal = 20.dp, vertical = 16.dp)
             .verticalScroll(rememberScrollState())
     ) {
@@ -47,69 +59,128 @@ fun PAKRepackScreen(navController: NavController) {
             modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = Color(0xFF00796B), modifier = Modifier.size(15.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = AccentTeal, modifier = Modifier.size(15.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text("Back", color = Color(0xFF00796B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Back", color = AccentTeal, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Text("PAK Repack", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
-        Text("EDITTED -> PAK", fontSize = 14.sp, color = Color(0xFF757575))
+        Text("PAK Repack", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("EDITTED -> PAK", fontSize = 14.sp, color = TextSecondary)
         Spacer(modifier = Modifier.height(20.dp))
 
+        // Choose original PAK files
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = DarkCardBg),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Choose original PAK files · PAK_ORIGINAL", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(selectedPak?.name ?: "Not selected", fontSize = 13.sp, color = TextSecondary)
+                }
+                Button(
+                    onClick = { showPickerDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A34)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Choose", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Screenshot 2 Repack Options
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = DarkCardBg),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
-                Text("Source Folder:", fontWeight = FontWeight.Bold)
-                Text("/storage/emulated/0/RJTOOL/EDITTED", color = Color(0xFF00796B))
-                Spacer(modifier = Modifier.height(10.dp))
-                Text("Output Folder:", fontWeight = FontWeight.Bold)
-                Text("/storage/emulated/0/RJTOOL/RESULT_PAK", color = Color(0xFF757575))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable { enableCustomRepack = !enableCustomRepack }
+                ) {
+                    Checkbox(
+                        checked = enableCustomRepack,
+                        onCheckedChange = { enableCustomRepack = it },
+                        colors = CheckboxDefaults.colors(checkedColor = AccentTeal, uncheckedColor = TextSecondary)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Enable custom PAK repacking", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Radio 1: Match paths using index.csv
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable { selectedMode = 1 }.padding(vertical = 4.dp)
+                ) {
+                    RadioButton(
+                        selected = selectedMode == 1,
+                        onClick = { selectedMode = 1 },
+                        colors = RadioButtonDefaults.colors(selectedColor = AccentTeal, unselectedColor = TextSecondary)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("1. Match paths using index.csv", fontSize = 14.sp, color = TextPrimary)
+                }
+
+                // Radio 2: Use the EDITTED directory structure
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable { selectedMode = 2 }.padding(vertical = 4.dp)
+                ) {
+                    RadioButton(
+                        selected = selectedMode == 2,
+                        onClick = { selectedMode = 2 },
+                        colors = RadioButtonDefaults.colors(selectedColor = AccentTeal, unselectedColor = TextSecondary)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("2. Use the EDITTED directory structure", fontSize = 14.sp, color = TextPrimary)
+                }
             }
         }
-        Spacer(modifier = Modifier.height(14.dp))
 
-        OutlinedTextField(
-            value = outputName,
-            onValueChange = { outputName = it },
-            label = { Text("Output PAK Filename") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = {
+                val outName = selectedPak?.name ?: "repacked.pak"
+                val targetPak = File(File(FileUtils.ROOT_DIR, "RESULT_PAK"), outName)
                 val sourceDir = File(FileUtils.ROOT_DIR, "EDITTED")
-                val targetPak = File(File(FileUtils.ROOT_DIR, "RESULT_PAK"), outputName)
+
                 isProcessing = true
-                logMessage = "Starting repack from EDITTED...\n"
+                logMessage = "Starting repack into ${targetPak.name}...\n"
                 scope.launch {
-                    PakEngine.repackFolder(sourceDir, targetPak) { msg, _ ->
+                    PakEngine.repackPak(sourceDir, targetPak, selectedMode == 1) { msg, _ ->
                         logMessage += "$msg\n"
                     }
                     isProcessing = false
                 }
             },
             modifier = Modifier.fillMaxWidth().height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+            colors = ButtonDefaults.buttonColors(containerColor = ButtonGreen),
             shape = RoundedCornerShape(10.dp),
             enabled = !isProcessing
         ) {
-            Text(if (isProcessing) "Repacking..." else "Repack to PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(if (isProcessing) "Repacking..." else "Repack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
         if (logMessage.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(text = logMessage, color = Color(0xFF00FF66), fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.padding(14.dp))
+                Text(text = logMessage, color = AccentTeal, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.padding(14.dp))
             }
         }
     }

@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rjtool.app.ui.components.TopHeader
+import com.rjtool.app.ui.theme.*
 
 data class HomeTool(val title: String, val subtitle: String, val icon: ImageVector, val onClick: () -> Unit)
 
@@ -37,14 +38,14 @@ fun HomeScreen(
         HomeTool("PAK Repack", "EDITTED -> PAK", Icons.Default.ArrowUpward, onPAKRepack),
         HomeTool("LUA Decompile", "bytecode -> Lua source", Icons.Default.DataObject, onLUADecompile),
         HomeTool("LUA Compile", "Lua source -> bytecode", Icons.Default.Code, onLUACompile),
-        HomeTool("Size Fixer", "Fix / Pad target file size", Icons.Default.FitScreen, onSizeFixer),
+        HomeTool("Size Fixer", "Fix file size / null padding", Icons.Default.FitScreen, onSizeFixer),
         HomeTool("Hex Editor", "Edit .uexp binary bytes", Icons.Default.Edit, onHexEditor)
     )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF7F9FA))
+            .background(DarkBackground)
             .padding(horizontal = 20.dp, vertical = 16.dp)
             .verticalScroll(rememberScrollState())
     ) {
@@ -54,21 +55,20 @@ fun HomeScreen(
             text = "${Build.MODEL} · Android ${Build.VERSION.RELEASE}",
             fontSize = 13.5.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF757575)
+            color = TextSecondary
         )
         Spacer(modifier = Modifier.height(14.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            colors = CardDefaults.cardColors(containerColor = DarkCardBg),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Text("Fixed workspace", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+                Text("Fixed workspace", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("/storage/emulated/0/RJTOOL", fontSize = 13.5.sp, color = Color(0xFF757575))
+                Text("/storage/emulated/0/RJTOOL", fontSize = 13.5.sp, color = TextSecondary)
                 Spacer(modifier = Modifier.height(10.dp))
-                Text("Storage access granted", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF00875A))
+                Text("Storage access granted", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = AccentTeal)
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -77,9 +77,8 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 5.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = DarkCardBg),
                 shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
                 onClick = tool.onClick
             ) {
                 Row(
@@ -92,18 +91,18 @@ fun HomeScreen(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFE0F2F1)),
+                            .background(Color(0xFF1E3A34)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(tool.icon, tool.title, tint = Color(0xFF00796B), modifier = Modifier.size(26.dp))
+                        Icon(tool.icon, tool.title, tint = AccentTeal, modifier = Modifier.size(26.dp))
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(tool.title, fontSize = 16.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+                        Text(tool.title, fontSize = 16.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text(tool.subtitle, fontSize = 13.sp, color = Color(0xFF757575))
+                        Text(tool.subtitle, fontSize = 13.sp, color = TextSecondary)
                     }
-                    Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, "Go", tint = Color(0xFF9E9E9E), modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, "Go", tint = TextSecondary, modifier = Modifier.size(16.dp))
                 }
             }
         }
