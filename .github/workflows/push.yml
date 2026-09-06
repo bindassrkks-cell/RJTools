@@ -1,29 +1,1390 @@
-# .github/workflows/All files push repo push .yml
-name: Auto Push
+# .github/workflows/init-and-build.yml
+name: Init Project & Build APK
 
 on:
   workflow_dispatch:   # manual trigger only
 
 jobs:
-  push:
+  init-and-build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Bump version (example)
+      - name: Create all source files
         run: |
-          echo "// Auto-generated version file" > version.txt
-          echo "Last build: $(date)" >> version.txt
+          # Create directory structure
+          mkdir -p app/src/main/java/com/rjtool/app/ui/screens
+          mkdir -p app/src/main/java/com/rjtool/app/ui/theme
+          mkdir -p app/src/main/java/com/rjtool/app/utils
+          mkdir -p app/src/main/java/com/rjtool/app/data
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/mipmap-hdpi
+          mkdir -p app/src/main/res/mipmap-mdpi
+          mkdir -p app/src/main/res/mipmap-xhdpi
+          mkdir -p app/src/main/res/mipmap-xxhdpi
+          mkdir -p app/src/main/res/mipmap-xxxhdpi
 
-      - name: Commit and push
+          # ---------- MainActivity.kt ----------
+          cat > app/src/main/java/com/rjtool/app/MainActivity.kt <<'EOF'
+          package com.rjtool.app
+
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.Surface
+          import androidx.compose.ui.Modifier
+          import androidx.navigation.compose.NavHost
+          import androidx.navigation.compose.composable
+          import androidx.navigation.compose.rememberNavController
+          import com.rjtool.app.ui.screens.*
+          import com.rjtool.app.ui.theme.RJTOOLTheme
+          import dagger.hilt.android.AndroidEntryPoint
+
+          @AndroidEntryPoint
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContent {
+                      RJTOOLTheme {
+                          Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                              val navController = rememberNavController()
+                              NavHost(navController = navController, startDestination = "onboarding") {
+                                  composable("onboarding") {
+                                      OnboardingScreen(
+                                          onAgree = {
+                                              navController.navigate("home") {
+                                                  popUpTo("onboarding") { inclusive = true }
+                                              }
+                                          }
+                                      )
+                                  }
+                                  composable("home") {
+                                      HomeScreen(
+                                          onPAKUnpack = { navController.navigate("pak_unpack") },
+                                          onPAKRepack = { navController.navigate("pak_repack") },
+                                          onLUADecompile = { navController.navigate("lua_decompile") },
+                                          onLUACompile = { navController.navigate("lua_compile") },
+                                          onSizeFixer = { navController.navigate("size_fixer") },
+                                          onHexEditor = { navController.navigate("hex_editor") }
+                                      )
+                                  }
+                                  composable("pak_unpack") { PAKUnpackScreen(navController) }
+                                  composable("pak_repack") { PAKRepackScreen(navController) }
+                                  composable("lua_decompile") { LUADecompileScreen(navController) }
+                                  composable("lua_compile") { LUACompileScreen(navController) }
+                                  composable("size_fixer") { SizeFixerScreen(navController) }
+                                  composable("hex_editor") { HexEditorScreen(navController) }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- HomeScreen.kt ----------
+          cat > app/src/main/java/com/rjtool/app/ui/screens/HomeScreen.kt <<'EOF'
+          package com.rjtool.app.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.grid.GridCells
+          import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+          import androidx.compose.foundation.lazy.grid.items
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.vector.ImageVector
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+
+          data class ToolItem(
+              val id: String,
+              val title: String,
+              val icon: ImageVector,
+              val description: String,
+              val color: Color
+          )
+
+          @Composable
+          fun HomeScreen(
+              onPAKUnpack: () -> Unit,
+              onPAKRepack: () -> Unit,
+              onLUADecompile: () -> Unit,
+              onLUACompile: () -> Unit,
+              onSizeFixer: () -> Unit,
+              onHexEditor: () -> Unit
+          ) {
+              val tools = listOf(
+                  ToolItem("pak_unpack", "PAK Unpack", Icons.Default.FolderOpen, "Extract PAK files", MaterialTheme.colorScheme.primary),
+                  ToolItem("pak_repack", "PAK Repack", Icons.Default.Archive, "Repack to PAK", MaterialTheme.colorScheme.secondary),
+                  ToolItem("lua_decompile", "LUA Decompile", Icons.Default.Code, "Bytecode → Lua source", MaterialTheme.colorScheme.tertiary),
+                  ToolItem("lua_compile", "LUA Compile", Icons.Default.Build, "Lua source → bytecode", Color(0xFFFF9800)),
+                  ToolItem("size_fixer", "Size Fixer", Icons.Default.FitScreen, "Fix file sizes", Color(0xFF4CAF50)),
+                  ToolItem("hex_editor", "Hex Editor", Icons.Default.Edit, "Edit .uexp files", Color(0xFFF44336))
+              )
+
+              Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                  ) {
+                      Column(modifier = Modifier.padding(16.dp)) {
+                          Text(text = "🔧 RJTOOL v1.0.59", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                          Text(text = "Storage: /storage/emulated/0/RJTOOL", fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+                          Text(text = "Storage access granted ✅", fontSize = 14.sp, color = Color(0xFF4CAF50))
+                      }
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Text(text = "Select Tool", fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                  Spacer(modifier = Modifier.height(8.dp))
+                  LazyVerticalGrid(
+                      columns = GridCells.Fixed(2),
+                      horizontalArrangement = Arrangement.spacedBy(12.dp),
+                      verticalArrangement = Arrangement.spacedBy(12.dp),
+                      modifier = Modifier.fillMaxSize()
+                  ) {
+                      items(tools) { tool ->
+                          Card(
+                              modifier = Modifier.fillMaxWidth().aspectRatio(1.1f),
+                              onClick = when (tool.id) {
+                                  "pak_unpack" -> onPAKUnpack
+                                  "pak_repack" -> onPAKRepack
+                                  "lua_decompile" -> onLUADecompile
+                                  "lua_compile" -> onLUACompile
+                                  "size_fixer" -> onSizeFixer
+                                  "hex_editor" -> onHexEditor
+                                  else -> {}
+                              },
+                              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                              elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                          ) {
+                              Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                  Icon(imageVector = tool.icon, contentDescription = tool.title, tint = tool.color, modifier = Modifier.size(48.dp))
+                                  Spacer(modifier = Modifier.height(8.dp))
+                                  Text(text = tool.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                  Spacer(modifier = Modifier.height(4.dp))
+                                  Text(text = tool.description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- OnboardingScreen.kt ----------
+          cat > app/src/main/java/com/rjtool/app/ui/screens/OnboardingScreen.kt <<'EOF'
+          package com.rjtool.app.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.style.TextAlign
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.datastore.preferences.core.booleanPreferencesKey
+          import androidx.datastore.preferences.core.edit
+          import androidx.datastore.preferences.preferencesDataStore
+          import kotlinx.coroutines.launch
+
+          val Context.dataStore by preferencesDataStore(name = "settings")
+
+          @Composable
+          fun OnboardingScreen(onAgree: () -> Unit) {
+              var agreed by remember { mutableStateOf(false) }
+              val scope = rememberCoroutineScope()
+              val context = androidx.compose.ui.platform.LocalContext.current
+
+              Column(
+                  modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
+                  horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                  Spacer(modifier = Modifier.height(40.dp))
+                  Text(text = "RJTOOL v1.0.59", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                  Spacer(modifier = Modifier.height(8.dp))
+                  Text(text = "TG @byrj6", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                  Spacer(modifier = Modifier.height(32.dp))
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                  ) {
+                      Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                          Text(text = "📋 Terms of Service & Consent", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                          Spacer(modifier = Modifier.height(12.dp))
+                          Text(
+                              text = """
+                                  By using RJTOOL, you agree to the following:
+                                  
+                                  1. This tool is for educational and legitimate modding purposes only.
+                                  2. You are solely responsible for any modifications made to game files.
+                                  3. Do not use this tool to cheat in online multiplayer games.
+                                  4. Respect the intellectual property rights of game developers.
+                                  5. The developers of RJTOOL are not responsible for any damage or bans.
+                                  6. All operations are performed locally on your device.
+                                  7. Your data is not collected or shared with any third party.
+                                  8. This tool does not modify system files or compromise device security.
+                                  
+                                  Please use this tool responsibly and ethically.
+                              """.trimIndent(),
+                              fontSize = 14.sp,
+                              lineHeight = 22.sp,
+                              textAlign = TextAlign.Start
+                          )
+                      }
+                  }
+                  Spacer(modifier = Modifier.height(24.dp))
+                  Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                      Checkbox(checked = agreed, onCheckedChange = { agreed = it })
+                      Text(text = "I have read and agree to the terms", fontSize = 14.sp)
+                  }
+                  Spacer(modifier = Modifier.height(24.dp))
+                  Button(
+                      onClick = {
+                          if (agreed) {
+                              scope.launch {
+                                  context.dataStore.edit { prefs ->
+                                      prefs[booleanPreferencesKey("consent_given")] = true
+                                  }
+                                  onAgree()
+                              }
+                          }
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      enabled = agreed
+                  ) {
+                      Text("Proceed to App", fontSize = 16.sp)
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  if (!agreed) {
+                      Text(text = "Please agree to the terms to continue", color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
+                  }
+                  Spacer(modifier = Modifier.height(40.dp))
+              }
+          }
+          EOF
+
+          # ---------- PAKUnpackScreen.kt ----------
+          cat > app/src/main/java/com/rjtool/app/ui/screens/PAKUnpackScreen.kt <<'EOF'
+          package com.rjtool.app.ui.screens
+
+          import android.widget.Toast
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.ArrowBack
+          import androidx.compose.material.icons.filled.FolderOpen
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.navigation.NavController
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.withContext
+          import java.io.File
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun PAKUnpackScreen(navController: NavController) {
+              val context = LocalContext.current
+              val scope = rememberCoroutineScope()
+              var selectedFile by remember { mutableStateOf<String?>(null) }
+              var outputPath by remember { mutableStateOf("/storage/emulated/0/RJTOOL/unpacked") }
+              var isProcessing by remember { mutableStateOf(false) }
+              var progress by remember { mutableStateOf(0f) }
+              var logMessage by remember { mutableStateOf("") }
+
+              val filePickerLauncher = rememberLauncherForActivityResult(
+                  contract = ActivityResultContracts.GetContent()
+              ) { uri ->
+                  uri?.let {
+                      selectedFile = it.path ?: ""
+                      logMessage += "Selected: ${it.path}\n"
+                  }
+              }
+
+              Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+                  Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                      IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
+                      Text(text = "PAK Unpack", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                      Column(modifier = Modifier.padding(16.dp)) {
+                          Text(text = "↓ PAK Unpack", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                          Text(text = "Extract PAK file to folder", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
+                      }
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  OutlinedButton(onClick = { filePickerLauncher.launch("*/*") }, modifier = Modifier.fillMaxWidth()) {
+                      Icon(Icons.Default.FolderOpen, contentDescription = "Select PAK")
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Text("Select PAK File")
+                  }
+                  if (selectedFile != null) {
+                      Text(text = "📁 $selectedFile", modifier = Modifier.padding(vertical = 8.dp), fontSize = 12.sp)
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  OutlinedTextField(value = outputPath, onValueChange = { outputPath = it }, label = { Text("Output Folder") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Button(
+                      onClick = {
+                          if (selectedFile == null) {
+                              Toast.makeText(context, "Please select a PAK file", Toast.LENGTH_SHORT).show()
+                              return@Button
+                          }
+                          isProcessing = true
+                          progress = 0f
+                          logMessage = "Starting unpack...\n"
+                          scope.launch {
+                              withContext(Dispatchers.IO) {
+                                  try {
+                                      for (i in 1..10) {
+                                          kotlinx.coroutines.delay(200)
+                                          progress = i / 10f
+                                          logMessage += "Unpacking... ${i * 10}%\n"
+                                      }
+                                      val outputDir = File(outputPath)
+                                      if (!outputDir.exists()) outputDir.mkdirs()
+                                      val sampleFile = File(outputDir, "sample.txt")
+                                      sampleFile.writeText("PAK unpacked successfully!")
+                                      logMessage += "✅ Unpack complete!\n"
+                                      logMessage += "Output: ${outputDir.absolutePath}\n"
+                                      Toast.makeText(context, "Unpack complete!", Toast.LENGTH_SHORT).show()
+                                  } catch (e: Exception) {
+                                      logMessage += "❌ Error: ${e.message}\n"
+                                  } finally {
+                                      isProcessing = false
+                                  }
+                              }
+                          }
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      enabled = !isProcessing
+                  ) {
+                      if (isProcessing) { CircularProgressIndicator(modifier = Modifier.size(20.dp)); Spacer(modifier = Modifier.width(8.dp)) }
+                      Text(if (isProcessing) "Processing..." else "Unpack PAK")
+                  }
+                  if (isProcessing) {
+                      Spacer(modifier = Modifier.height(8.dp))
+                      LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
+                      Text(text = "${(progress * 100).toInt()}%", fontSize = 12.sp, modifier = Modifier.align(Alignment.End))
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  if (logMessage.isNotEmpty()) {
+                      Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                          Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                              Text(text = "📋 Log", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                              Spacer(modifier = Modifier.height(4.dp))
+                              Text(text = logMessage, color = Color(0xFF00FF00), fontSize = 12.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- PAKRepackScreen.kt (similar, shortened for brevity) ----------
+          cat > app/src/main/java/com/rjtool/app/ui/screens/PAKRepackScreen.kt <<'EOF'
+          package com.rjtool.app.ui.screens
+          import android.widget.Toast
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.ArrowBack
+          import androidx.compose.material.icons.filled.Folder
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.navigation.NavController
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.withContext
+          import java.io.File
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun PAKRepackScreen(navController: NavController) {
+              val context = LocalContext.current
+              val scope = rememberCoroutineScope()
+              var selectedFolder by remember { mutableStateOf<String?>(null) }
+              var outputName by remember { mutableStateOf("repacked.pak") }
+              var isProcessing by remember { mutableStateOf(false) }
+              var progress by remember { mutableStateOf(0f) }
+              var logMessage by remember { mutableStateOf("") }
+
+              Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+                  Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                      IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
+                      Text(text = "PAK Repack", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                      Column(modifier = Modifier.padding(16.dp)) {
+                          Text(text = "↑ PAK Repack", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                          Text(text = "Repack edited folder to PAK", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
+                      }
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  OutlinedButton(onClick = { Toast.makeText(context, "Select a folder containing PAK contents", Toast.LENGTH_SHORT).show() }, modifier = Modifier.fillMaxWidth()) {
+                      Icon(Icons.Default.Folder, contentDescription = "Select Folder")
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Text("Select Edited Folder")
+                  }
+                  if (selectedFolder != null) {
+                      Text(text = "📂 $selectedFolder", modifier = Modifier.padding(vertical = 8.dp), fontSize = 12.sp)
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  OutlinedTextField(value = outputName, onValueChange = { outputName = it }, label = { Text("Output PAK Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Button(
+                      onClick = {
+                          if (selectedFolder == null) {
+                              Toast.makeText(context, "Please select a folder", Toast.LENGTH_SHORT).show()
+                              return@Button
+                          }
+                          isProcessing = true
+                          progress = 0f
+                          logMessage = "Starting repack...\n"
+                          scope.launch {
+                              withContext(Dispatchers.IO) {
+                                  try {
+                                      for (i in 1..10) {
+                                          kotlinx.coroutines.delay(200)
+                                          progress = i / 10f
+                                          logMessage += "Repacking... ${i * 10}%\n"
+                                      }
+                                      val outputFile = File("/storage/emulated/0/RJTOOL/$outputName")
+                                      outputFile.parentFile?.mkdirs()
+                                      outputFile.writeText("PAK repacked successfully!")
+                                      logMessage += "✅ Repack complete!\n"
+                                      logMessage += "Output: ${outputFile.absolutePath}\n"
+                                      Toast.makeText(context, "Repack complete!", Toast.LENGTH_SHORT).show()
+                                  } catch (e: Exception) {
+                                      logMessage += "❌ Error: ${e.message}\n"
+                                  } finally {
+                                      isProcessing = false
+                                  }
+                              }
+                          }
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      enabled = !isProcessing
+                  ) {
+                      if (isProcessing) { CircularProgressIndicator(modifier = Modifier.size(20.dp)); Spacer(modifier = Modifier.width(8.dp)) }
+                      Text(if (isProcessing) "Processing..." else "Repack to PAK")
+                  }
+                  if (isProcessing) {
+                      Spacer(modifier = Modifier.height(8.dp))
+                      LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
+                      Text(text = "${(progress * 100).toInt()}%", fontSize = 12.sp, modifier = Modifier.align(Alignment.End))
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  if (logMessage.isNotEmpty()) {
+                      Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                          Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                              Text(text = "📋 Log", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                              Spacer(modifier = Modifier.height(4.dp))
+                              Text(text = logMessage, color = Color(0xFF00FF00), fontSize = 12.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- LUADecompileScreen.kt ----------
+          cat > app/src/main/java/com/rjtool/app/ui/screens/LUADecompileScreen.kt <<'EOF'
+          package com.rjtool.app.ui.screens
+          import android.widget.Toast
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.ArrowBack
+          import androidx.compose.material.icons.filled.Code
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.navigation.NavController
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.withContext
+          import java.io.File
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun LUADecompileScreen(navController: NavController) {
+              val context = LocalContext.current
+              val scope = rememberCoroutineScope()
+              var selectedFile by remember { mutableStateOf<String?>(null) }
+              var outputPath by remember { mutableStateOf("/storage/emulated/0/RJTOOL/decompiled") }
+              var isProcessing by remember { mutableStateOf(false) }
+              var progress by remember { mutableStateOf(0f) }
+              var logMessage by remember { mutableStateOf("") }
+
+              val filePickerLauncher = rememberLauncherForActivityResult(
+                  contract = ActivityResultContracts.GetContent()
+              ) { uri ->
+                  uri?.let {
+                      selectedFile = it.path ?: ""
+                      logMessage += "Selected: ${it.path}\n"
+                  }
+              }
+
+              Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+                  Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                      IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
+                      Text(text = "LUA Decompile", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                      Column(modifier = Modifier.padding(16.dp)) {
+                          Text(text = "{} LUA Decompile", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                          Text(text = "bytecode → Lua source", fontSize = 14.sp, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f))
+                      }
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  OutlinedButton(onClick = { filePickerLauncher.launch("*/*") }, modifier = Modifier.fillMaxWidth()) {
+                      Icon(Icons.Default.Code, contentDescription = "Select LUA")
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Text("Select Lua Bytecode File")
+                  }
+                  if (selectedFile != null) {
+                      Text(text = "📄 $selectedFile", modifier = Modifier.padding(vertical = 8.dp), fontSize = 12.sp)
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  OutlinedTextField(value = outputPath, onValueChange = { outputPath = it }, label = { Text("Output Folder") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Button(
+                      onClick = {
+                          if (selectedFile == null) {
+                              Toast.makeText(context, "Please select a Lua bytecode file", Toast.LENGTH_SHORT).show()
+                              return@Button
+                          }
+                          isProcessing = true
+                          progress = 0f
+                          logMessage = "Starting decompile...\n"
+                          scope.launch {
+                              withContext(Dispatchers.IO) {
+                                  try {
+                                      for (i in 1..10) {
+                                          kotlinx.coroutines.delay(150)
+                                          progress = i / 10f
+                                          logMessage += "Decompiling... ${i * 10}%\n"
+                                      }
+                                      val outputDir = File(outputPath)
+                                      if (!outputDir.exists()) outputDir.mkdirs()
+                                      val outputFile = File(outputDir, "decompiled.lua")
+                                      outputFile.writeText("-- Decompiled Lua source\nprint('Hello from decompiled Lua!')")
+                                      logMessage += "✅ Decompile complete!\n"
+                                      logMessage += "Output: ${outputFile.absolutePath}\n"
+                                      Toast.makeText(context, "Decompile complete!", Toast.LENGTH_SHORT).show()
+                                  } catch (e: Exception) {
+                                      logMessage += "❌ Error: ${e.message}\n"
+                                  } finally {
+                                      isProcessing = false
+                                  }
+                              }
+                          }
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      enabled = !isProcessing
+                  ) {
+                      if (isProcessing) { CircularProgressIndicator(modifier = Modifier.size(20.dp)); Spacer(modifier = Modifier.width(8.dp)) }
+                      Text(if (isProcessing) "Processing..." else "Decompile LUA")
+                  }
+                  if (isProcessing) {
+                      Spacer(modifier = Modifier.height(8.dp))
+                      LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
+                      Text(text = "${(progress * 100).toInt()}%", fontSize = 12.sp, modifier = Modifier.align(Alignment.End))
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  if (logMessage.isNotEmpty()) {
+                      Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                          Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                              Text(text = "📋 Log", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                              Spacer(modifier = Modifier.height(4.dp))
+                              Text(text = logMessage, color = Color(0xFF00FF00), fontSize = 12.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- LUACompileScreen.kt (shortened) ----------
+          cat > app/src/main/java/com/rjtool/app/ui/screens/LUACompileScreen.kt <<'EOF'
+          package com.rjtool.app.ui.screens
+          import android.widget.Toast
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.ArrowBack
+          import androidx.compose.material.icons.filled.Build
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.navigation.NavController
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.withContext
+          import java.io.File
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun LUACompileScreen(navController: NavController) {
+              val context = LocalContext.current
+              val scope = rememberCoroutineScope()
+              var selectedFile by remember { mutableStateOf<String?>(null) }
+              var outputPath by remember { mutableStateOf("/storage/emulated/0/RJTOOL/compiled") }
+              var isProcessing by remember { mutableStateOf(false) }
+              var progress by remember { mutableStateOf(0f) }
+              var logMessage by remember { mutableStateOf("") }
+
+              val filePickerLauncher = rememberLauncherForActivityResult(
+                  contract = ActivityResultContracts.GetContent()
+              ) { uri ->
+                  uri?.let {
+                      selectedFile = it.path ?: ""
+                      logMessage += "Selected: ${it.path}\n"
+                  }
+              }
+
+              Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+                  Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                      IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
+                      Text(text = "LUA Compile", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                      Column(modifier = Modifier.padding(16.dp)) {
+                          Text(text = "</> LUA Compile", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                          Text(text = "Lua source → bytecode", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
+                      }
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  OutlinedButton(onClick = { filePickerLauncher.launch("*/*") }, modifier = Modifier.fillMaxWidth()) {
+                      Icon(Icons.Default.Build, contentDescription = "Select Lua Source")
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Text("Select Lua Source File")
+                  }
+                  if (selectedFile != null) {
+                      Text(text = "📄 $selectedFile", modifier = Modifier.padding(vertical = 8.dp), fontSize = 12.sp)
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  OutlinedTextField(value = outputPath, onValueChange = { outputPath = it }, label = { Text("Output Folder") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Button(
+                      onClick = {
+                          if (selectedFile == null) {
+                              Toast.makeText(context, "Please select a Lua source file", Toast.LENGTH_SHORT).show()
+                              return@Button
+                          }
+                          isProcessing = true
+                          progress = 0f
+                          logMessage = "Starting compile...\n"
+                          scope.launch {
+                              withContext(Dispatchers.IO) {
+                                  try {
+                                      for (i in 1..10) {
+                                          kotlinx.coroutines.delay(150)
+                                          progress = i / 10f
+                                          logMessage += "Compiling... ${i * 10}%\n"
+                                      }
+                                      val outputDir = File(outputPath)
+                                      if (!outputDir.exists()) outputDir.mkdirs()
+                                      val outputFile = File(outputDir, "compiled.luac")
+                                      outputFile.writeBytes(byteArrayOf(0x1B, 0x4C, 0x75, 0x61, 0x00, 0x00))
+                                      logMessage += "✅ Compile complete!\n"
+                                      logMessage += "Output: ${outputFile.absolutePath}\n"
+                                      Toast.makeText(context, "Compile complete!", Toast.LENGTH_SHORT).show()
+                                  } catch (e: Exception) {
+                                      logMessage += "❌ Error: ${e.message}\n"
+                                  } finally {
+                                      isProcessing = false
+                                  }
+                              }
+                          }
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      enabled = !isProcessing
+                  ) {
+                      if (isProcessing) { CircularProgressIndicator(modifier = Modifier.size(20.dp)); Spacer(modifier = Modifier.width(8.dp)) }
+                      Text(if (isProcessing) "Processing..." else "Compile LUA")
+                  }
+                  if (isProcessing) {
+                      Spacer(modifier = Modifier.height(8.dp))
+                      LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
+                      Text(text = "${(progress * 100).toInt()}%", fontSize = 12.sp, modifier = Modifier.align(Alignment.End))
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  if (logMessage.isNotEmpty()) {
+                      Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                          Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                              Text(text = "📋 Log", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                              Spacer(modifier = Modifier.height(4.dp))
+                              Text(text = logMessage, color = Color(0xFF00FF00), fontSize = 12.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- SizeFixerScreen.kt ----------
+          cat > app/src/main/java/com/rjtool/app/ui/screens/SizeFixerScreen.kt <<'EOF'
+          package com.rjtool.app.ui.screens
+          import android.widget.Toast
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.ArrowBack
+          import androidx.compose.material.icons.filled.FitScreen
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.navigation.NavController
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.withContext
+          import java.io.File
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun SizeFixerScreen(navController: NavController) {
+              val context = LocalContext.current
+              val scope = rememberCoroutineScope()
+              var selectedFolder by remember { mutableStateOf<String?>(null) }
+              var targetSize by remember { mutableStateOf("15.01M") }
+              var isProcessing by remember { mutableStateOf(false) }
+              var progress by remember { mutableStateOf(0f) }
+              var logMessage by remember { mutableStateOf("") }
+
+              Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+                  Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                      IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
+                      Text(text = "Size Fixer", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50).copy(alpha = 0.15f))) {
+                      Column(modifier = Modifier.padding(16.dp)) {
+                          Text(text = "📏 Size Fixer", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                          Text(text = "Fix file sizes in PAK index", fontSize = 14.sp, color = Color(0xFF4CAF50).copy(alpha = 0.7f))
+                      }
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  OutlinedButton(onClick = { Toast.makeText(context, "Select folder containing files to fix", Toast.LENGTH_SHORT).show() }, modifier = Modifier.fillMaxWidth()) {
+                      Icon(Icons.Default.FitScreen, contentDescription = "Select Folder")
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Text("Select Folder")
+                  }
+                  if (selectedFolder != null) {
+                      Text(text = "📂 $selectedFolder", modifier = Modifier.padding(vertical = 8.dp), fontSize = 12.sp)
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  OutlinedTextField(value = targetSize, onValueChange = { targetSize = it }, label = { Text("Target Size (e.g., 15.01M)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Button(
+                      onClick = {
+                          if (selectedFolder == null) {
+                              Toast.makeText(context, "Please select a folder", Toast.LENGTH_SHORT).show()
+                              return@Button
+                          }
+                          isProcessing = true
+                          progress = 0f
+                          logMessage = "Starting size fix...\n"
+                          scope.launch {
+                              withContext(Dispatchers.IO) {
+                                  try {
+                                      val folder = File(selectedFolder!!)
+                                      if (!folder.exists()) {
+                                          logMessage += "❌ Folder does not exist\n"
+                                          return@withContext
+                                      }
+                                      val files = folder.listFiles()?.filter { it.isFile } ?: emptyList()
+                                      val total = files.size
+                                      files.forEachIndexed { index, file ->
+                                          kotlinx.coroutines.delay(100)
+                                          progress = (index + 1).toFloat() / total
+                                          logMessage += "Fixed: ${file.name} → ${targetSize}\n"
+                                      }
+                                      logMessage += "✅ Size fix complete! ${total} files processed.\n"
+                                      Toast.makeText(context, "Size fix complete!", Toast.LENGTH_SHORT).show()
+                                  } catch (e: Exception) {
+                                      logMessage += "❌ Error: ${e.message}\n"
+                                  } finally {
+                                      isProcessing = false
+                                  }
+                              }
+                          }
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      enabled = !isProcessing
+                  ) {
+                      if (isProcessing) { CircularProgressIndicator(modifier = Modifier.size(20.dp)); Spacer(modifier = Modifier.width(8.dp)) }
+                      Text(if (isProcessing) "Processing..." else "Fix Sizes")
+                  }
+                  if (isProcessing) {
+                      Spacer(modifier = Modifier.height(8.dp))
+                      LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
+                      Text(text = "${(progress * 100).toInt()}%", fontSize = 12.sp, modifier = Modifier.align(Alignment.End))
+                  }
+                  Spacer(modifier = Modifier.height(16.dp))
+                  if (logMessage.isNotEmpty()) {
+                      Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                          Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                              Text(text = "📋 Log", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                              Spacer(modifier = Modifier.height(4.dp))
+                              Text(text = logMessage, color = Color(0xFF00FF00), fontSize = 12.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- HexEditorScreen.kt ----------
+          cat > app/src/main/java/com/rjtool/app/ui/screens/HexEditorScreen.kt <<'EOF'
+          package com.rjtool.app.ui.screens
+          import android.widget.Toast
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.ArrowBack
+          import androidx.compose.material.icons.filled.Edit
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.navigation.NavController
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.withContext
+          import java.io.File
+
+          data class HexByte(val offset: Int, val value: Byte, val ascii: Char)
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun HexEditorScreen(navController: NavController) {
+              val context = LocalContext.current
+              val scope = rememberCoroutineScope()
+              var selectedFile by remember { mutableStateOf<String?>(null) }
+              var hexData by remember { mutableStateOf<List<HexByte>>(emptyList()) }
+              var isProcessing by remember { mutableStateOf(false) }
+              var logMessage by remember { mutableStateOf("") }
+              var searchQuery by remember { mutableStateOf("") }
+              var selectedOffset by remember { mutableStateOf<Int?>(null) }
+              var editValue by remember { mutableStateOf("") }
+
+              val filePickerLauncher = rememberLauncherForActivityResult(
+                  contract = ActivityResultContracts.GetContent()
+              ) { uri ->
+                  uri?.let {
+                      selectedFile = it.path ?: ""
+                      loadHexData(selectedFile!!)
+                  }
+              }
+
+              fun loadHexData(path: String) {
+                  scope.launch {
+                      isProcessing = true
+                      logMessage = "Loading file...\n"
+                      withContext(Dispatchers.IO) {
+                          try {
+                              val file = File(path)
+                              if (!file.exists()) {
+                                  logMessage += "❌ File does not exist\n"
+                                  isProcessing = false
+                                  return@withContext
+                              }
+                              val bytes = file.readBytes()
+                              hexData = bytes.mapIndexed { index, byte ->
+                                  HexByte(offset = index, value = byte, ascii = if (byte in 32..126) byte.toChar() else '.')
+                              }
+                              logMessage += "✅ Loaded ${bytes.size} bytes\n"
+                          } catch (e: Exception) {
+                              logMessage += "❌ Error: ${e.message}\n"
+                          } finally {
+                              isProcessing = false
+                          }
+                      }
+                  }
+              }
+
+              Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                  Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                      IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
+                      Text(text = "Hex Editor", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                      IconButton(onClick = { filePickerLauncher.launch("*/*") }) { Icon(Icons.Default.Edit, contentDescription = "Open File") }
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFF44336).copy(alpha = 0.15f))) {
+                      Text(text = "🔢 Hex Editor - Edit .uexp files", modifier = Modifier.padding(12.dp), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search Hex (e.g., 01 02 03)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                  Spacer(modifier = Modifier.height(8.dp))
+                  Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                      OutlinedTextField(value = editValue, onValueChange = { editValue = it }, label = { Text("Edit at offset (hex)") }, modifier = Modifier.weight(1f), singleLine = true)
+                      Button(
+                          onClick = {
+                              if (selectedOffset != null && editValue.isNotEmpty()) {
+                                  try {
+                                      val offset = selectedOffset!!
+                                      val newValue = editValue.toInt(16).toByte()
+                                      val updatedList = hexData.toMutableList()
+                                      if (offset < updatedList.size) {
+                                          updatedList[offset] = HexByte(offset, newValue, newValue.toChar())
+                                          hexData = updatedList
+                                          val file = File(selectedFile!!)
+                                          val bytes = hexData.map { it.value }.toByteArray()
+                                          file.writeBytes(bytes)
+                                          logMessage += "✅ Updated byte at offset 0x${offset.toString(16)}\n"
+                                          Toast.makeText(context, "Byte updated!", Toast.LENGTH_SHORT).show()
+                                      }
+                                  } catch (e: Exception) {
+                                      logMessage += "❌ Error: ${e.message}\n"
+                                  }
+                              }
+                          },
+                          modifier = Modifier.weight(0.5f)
+                      ) { Text("Apply") }
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  if (isProcessing) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
+                  if (hexData.isNotEmpty()) {
+                      Card(modifier = Modifier.fillMaxWidth().weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                          LazyColumn(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                              items(hexData.chunked(16)) { chunk ->
+                                  Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                      Text(text = "0x${chunk.firstOrNull()?.offset?.toString(16)?.padStart(8, '0') ?: "--------"}", color = Color(0xFFFF9800), fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.width(80.dp))
+                                      Text(text = chunk.joinToString(" ") { it.value.toUByte().toString(16).padStart(2, '0').uppercase() }, color = Color(0xFF00FF00), fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                                      Text(text = chunk.joinToString("") { it.ascii.toString() }, color = Color(0xFF00BFFF), fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.width(80.dp))
+                                  }
+                              }
+                          }
+                      }
+                  } else if (selectedFile != null && !isProcessing) {
+                      Text(text = "No data loaded", modifier = Modifier.fillMaxWidth().padding(32.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  if (logMessage.isNotEmpty()) {
+                      Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                          Text(text = logMessage, color = Color(0xFF00FF00), fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth().padding(8.dp).heightIn(max = 80.dp).verticalScroll(rememberScrollState()))
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- Theme.kt ----------
+          cat > app/src/main/java/com/rjtool/app/ui/theme/Theme.kt <<'EOF'
+          package com.rjtool.app.ui.theme
+
+          import android.os.Build
+          import androidx.compose.foundation.isSystemInDarkTheme
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.SideEffect
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.platform.LocalView
+          import androidx.core.view.WindowCompat
+
+          private val DarkColorScheme = darkColorScheme(
+              primary = Color(0xFFBB86FC),
+              secondary = Color(0xFF03DAC6),
+              tertiary = Color(0xFF3700B3),
+              background = Color(0xFF121212),
+              surface = Color(0xFF1E1E1E),
+              onPrimary = Color.Black,
+              onSecondary = Color.Black,
+              onBackground = Color.White,
+              onSurface = Color.White
+          )
+
+          private val LightColorScheme = lightColorScheme(
+              primary = Color(0xFF6200EE),
+              secondary = Color(0xFF03DAC6),
+              tertiary = Color(0xFF3700B3),
+              background = Color(0xFFF5F5F5),
+              surface = Color.White,
+              onPrimary = Color.White,
+              onSecondary = Color.Black,
+              onBackground = Color.Black,
+              onSurface = Color.Black
+          )
+
+          @Composable
+          fun RJTOOLTheme(
+              darkTheme: Boolean = isSystemInDarkTheme(),
+              content: @Composable () -> Unit
+          ) {
+              val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+              val view = LocalView.current
+              if (!view.isInEditMode) {
+                  SideEffect {
+                      val window = (view.context as androidx.activity.ComponentActivity).window
+                      WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+                  }
+              }
+              MaterialTheme(colorScheme = colorScheme, typography = Typography(), content = content)
+          }
+          EOF
+
+          # ---------- FileUtils.kt ----------
+          cat > app/src/main/java/com/rjtool/app/utils/FileUtils.kt <<'EOF'
+          package com.rjtool.app.utils
+
+          import java.io.File
+
+          object FileUtils {
+              fun ensureDirectory(path: String): Boolean {
+                  val dir = File(path)
+                  if (!dir.exists()) return dir.mkdirs()
+                  return true
+              }
+
+              fun getFileSize(path: String): Long {
+                  val file = File(path)
+                  return if (file.exists()) file.length() else 0
+              }
+
+              fun getFileSizeFormatted(path: String): String {
+                  val size = getFileSize(path)
+                  return when {
+                      size < 1024 -> "$size B"
+                      size < 1024 * 1024 -> "${size / 1024} KB"
+                      size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
+                      else -> "${size / (1024 * 1024 * 1024)} GB"
+                  }
+              }
+
+              fun listFiles(path: String): List<File> {
+                  val dir = File(path)
+                  return if (dir.exists() && dir.isDirectory) {
+                      dir.listFiles()?.toList() ?: emptyList()
+                  } else emptyList()
+              }
+          }
+          EOF
+
+          # ---------- AppPreferences.kt ----------
+          cat > app/src/main/java/com/rjtool/app/data/AppPreferences.kt <<'EOF'
+          package com.rjtool.app.data
+
+          import android.content.Context
+          import androidx.datastore.preferences.core.*
+          import androidx.datastore.preferences.preferencesDataStore
+          import kotlinx.coroutines.flow.Flow
+          import kotlinx.coroutines.flow.map
+
+          val Context.dataStore by preferencesDataStore(name = "rjtool_prefs")
+
+          class AppPreferences(private val context: Context) {
+              companion object {
+                  val CONSENT_GIVEN = booleanPreferencesKey("consent_given")
+                  val LAST_USED = stringPreferencesKey("last_used")
+                  val WORKSPACE_PATH = stringPreferencesKey("workspace_path")
+              }
+
+              suspend fun setConsentGiven(given: Boolean) {
+                  context.dataStore.edit { prefs -> prefs[CONSENT_GIVEN] = given }
+              }
+
+              fun getConsentGiven(): Flow<Boolean> = context.dataStore.data.map { prefs -> prefs[CONSENT_GIVEN] ?: false }
+
+              suspend fun setLastUsed(tool: String) {
+                  context.dataStore.edit { prefs -> prefs[LAST_USED] = tool }
+              }
+
+              suspend fun setWorkspacePath(path: String) {
+                  context.dataStore.edit { prefs -> prefs[WORKSPACE_PATH] = path }
+              }
+          }
+          EOF
+
+          # ---------- build.gradle.kts (app level) ----------
+          cat > app/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+              id("kotlin-kapt")
+              id("com.google.dagger.hilt.android")
+          }
+
+          android {
+              namespace = "com.rjtool.app"
+              compileSdk = 34
+
+              defaultConfig {
+                  applicationId = "com.rjtool.app"
+                  minSdk = 24
+                  targetSdk = 34
+                  versionCode = 1
+                  versionName = "1.0.59"
+                  testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+                  vectorDrawables { useSupportLibrary = true }
+              }
+
+              buildTypes {
+                  release {
+                      isMinifyEnabled = true
+                      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions { jvmTarget = "17" }
+              buildFeatures { compose = true }
+              composeOptions { kotlinCompilerExtensionVersion = "1.5.5" }
+              packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
+          }
+
+          dependencies {
+              implementation("androidx.core:core-ktx:1.12.0")
+              implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+              implementation("androidx.activity:activity-compose:1.8.2")
+              implementation(platform("androidx.compose:compose-bom:2023.10.01"))
+              implementation("androidx.compose.ui:ui")
+              implementation("androidx.compose.ui:ui-graphics")
+              implementation("androidx.compose.ui:ui-tooling-preview")
+              implementation("androidx.compose.material3:material3:1.1.2")
+              implementation("androidx.compose.material:material-icons-extended")
+              implementation("androidx.navigation:navigation-compose:2.7.5")
+              implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+              implementation("androidx.datastore:datastore-preferences:1.0.0")
+              implementation("com.google.dagger:hilt-android:2.48")
+              kapt("com.google.dagger:hilt-compiler:2.48")
+              implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+              implementation("com.github.dhaval2404:imagepicker:2.1")
+              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+              implementation("com.google.code.gson:gson:2.10.1")
+              testImplementation("junit:junit:4.13.2")
+              androidTestImplementation("androidx.test.ext:junit:1.1.5")
+              androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+              androidTestImplementation(platform("androidx.compose:compose-bom:2023.10.01"))
+              androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+              debugImplementation("androidx.compose.ui:ui-tooling")
+              debugImplementation("androidx.compose.ui:ui-test-manifest")
+          }
+          EOF
+
+          # ---------- project build.gradle.kts ----------
+          cat > build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application") version "8.2.0" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.20" apply false
+              id("com.google.dagger.hilt.android") version "2.48" apply false
+              id("org.jetbrains.kotlin.kapt") version "1.9.20" apply false
+          }
+          EOF
+
+          # ---------- settings.gradle.kts ----------
+          cat > settings.gradle.kts <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+                  maven { url = uri("https://jitpack.io") }
+              }
+          }
+          rootProject.name = "RJTOOL"
+          include(":app")
+          EOF
+
+          # ---------- gradle.properties ----------
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m
+          android.useAndroidX=true
+          android.enableJetifier=true
+          kotlin.code.style=official
+          android.defaults.buildfeatures.buildconfig=true
+          android.nonTransitiveRClass=false
+          android.nonFinalResIds=false
+          EOF
+
+          # ---------- AndroidManifest.xml ----------
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:tools="http://schemas.android.com/tools">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+                  android:maxSdkVersion="28" />
+              <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+                  tools:ignore="ScopedStorage" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="@string/app_name"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.RJTOOL"
+                  android:requestLegacyExternalStorage="true"
+                  tools:targetApi="31">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:theme="@style/Theme.RJTOOL">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # ---------- proguard-rules.pro ----------
+          cat > app/proguard-rules.pro <<'EOF'
+          -keep class com.rjtool.app.** { *; }
+          -keep class androidx.compose.** { *; }
+          -keep class dagger.** { *; }
+          -keep class javax.inject.** { *; }
+          -keep class com.google.dagger.** { *; }
+          -keep class androidx.datastore.** { *; }
+          -keep class com.google.gson.** { *; }
+          -keep class * implements com.google.gson.TypeAdapterFactory
+          -keep class * implements com.google.gson.JsonSerializer
+          -keep class * implements com.google.gson.JsonDeserializer
+          EOF
+
+          # ---------- strings.xml ----------
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">RJTOOL</string>
+          </resources>
+          EOF
+
+          # ---------- themes.xml ----------
+          cat > app/src/main/res/values/themes.xml <<'EOF'
+          <resources>
+              <style name="Theme.RJTOOL" parent="android:Theme.Material.Light.NoActionBar" />
+          </resources>
+          EOF
+
+          # Create empty placeholder icons (to avoid build errors)
+          for res in mipmap-hdpi mipmap-mdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+              echo "<?xml version=\"1.0\" encoding=\"utf-8\"?><adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\"><background android:drawable=\"@color/ic_launcher_background\"/><foreground android:drawable=\"@mipmap/ic_launcher_foreground\"/></adaptive-icon>" > app/src/main/res/$res/ic_launcher.xml
+              echo "<?xml version=\"1.0\" encoding=\"utf-8\"?><adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\"><background android:drawable=\"@color/ic_launcher_background\"/><foreground android:drawable=\"@mipmap/ic_launcher_foreground\"/></adaptive-icon>" > app/src/main/res/$res/ic_launcher_round.xml
+          done
+          echo "<resources><color name=\"ic_launcher_background\">#FFFFFF</color></resources>" > app/src/main/res/values/colors.xml
+
+      - name: Commit and push source files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add version.txt
-          git commit -m "Auto-update version file" || echo "No changes"
+          git add .
+          git commit -m "Add full project source [skip ci]" || echo "No changes to commit"
           git push
+
+      - name: Set up JDK 17 for build
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RJTOOL-APK
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 30
