@@ -14,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.rjtool.app.engine.PakEngine
 import com.rjtool.app.ui.screens.*
 import com.rjtool.app.ui.theme.DarkBackground
 import com.rjtool.app.ui.theme.RJTOOLTheme
@@ -38,9 +37,6 @@ class MainActivity : ComponentActivity() {
         }
 
         FileUtils.initRJToolWorkspace(this)
-        try {
-            PakEngine.ensurePythonStarted(this)
-        } catch (_: Exception) {}
 
         setContent {
             RJTOOLTheme {

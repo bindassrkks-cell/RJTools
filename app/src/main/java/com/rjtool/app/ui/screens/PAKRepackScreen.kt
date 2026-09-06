@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,7 +28,6 @@ import java.io.File
 
 @Composable
 fun PAKRepackScreen(navController: NavController) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var selectedPak by remember { mutableStateOf<File?>(null) }
     var showPickerDialog by remember { mutableStateOf(false) }
@@ -156,9 +154,9 @@ fun PAKRepackScreen(navController: NavController) {
                 val sourceDir = File(FileUtils.ROOT_DIR, "EDITTED")
 
                 isProcessing = true
-                logMessage = "Repacking via Python engine: ${targetPak.name}...\n"
+                logMessage = "Starting repack into ${targetPak.name}...\n"
                 scope.launch {
-                    PakEngine.repackPakWithPython(context, sourceDir, targetPak, selectedMode == 1) { msg ->
+                    PakEngine.repackPak(sourceDir, targetPak, selectedMode == 1) { msg ->
                         logMessage += "$msg\n"
                     }
                     isProcessing = false
@@ -169,7 +167,7 @@ fun PAKRepackScreen(navController: NavController) {
             shape = RoundedCornerShape(10.dp),
             enabled = !isProcessing
         ) {
-            Text(if (isProcessing) "Repacking via Python..." else "Repack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(if (isProcessing) "Repacking..." else "Repack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
         if (logMessage.isNotEmpty()) {

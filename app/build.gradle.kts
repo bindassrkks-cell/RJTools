@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.chaquo.python")
 }
 
 android {
@@ -16,7 +15,6 @@ android {
         versionName = "1.0.59"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
-
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
@@ -38,21 +36,6 @@ android {
     composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
-        jniLibs {
-            useLegacyPackaging = true
-        }
-    }
-}
-
-chaquopy {
-    defaultConfig {
-        version = "3.11"
-        pip {
-            install("pycryptodome")
-            install("zstandard")
-            install("gmalg")
-            install("requests")
-        }
     }
 }
 

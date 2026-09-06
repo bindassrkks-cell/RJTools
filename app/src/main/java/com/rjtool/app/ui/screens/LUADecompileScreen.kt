@@ -116,7 +116,7 @@ fun LUADecompileScreen(navController: NavController) {
                     withContext(Dispatchers.IO) {
                         val out = File(FileUtils.ROOT_DIR, "LUA_UNPACK/${file.nameWithoutExtension}.lua")
                         out.parentFile?.mkdirs()
-                        out.writeText("-- Decompiled source of ${file.name}\nprint('Decompiled via RJTOOL Python')\n")
+                        out.writeText("-- Decompiled source of ${file.name}\nprint('Decompiled via RJTOOL')\n")
                     }
                     logMessage = "✅ Decompiled ${file.name} to LUA_UNPACK\n"
                     isProcessing = false

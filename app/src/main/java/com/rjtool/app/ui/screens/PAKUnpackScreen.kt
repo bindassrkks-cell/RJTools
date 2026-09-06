@@ -182,10 +182,10 @@ fun PAKUnpackScreen(navController: NavController) {
                     return@Button
                 }
                 isProcessing = true
-                logMessage = "Starting Python extraction: ${pak.name}...\n"
+                logMessage = "Starting extraction of ${pak.name}...\n"
                 scope.launch {
                     val outDir = File(FileUtils.ROOT_DIR, "PAK_UNPACK")
-                    PakEngine.unpackPakWithPython(context, pak, outDir, decryptLuaOnly) { msg ->
+                    PakEngine.unpackPak(context, pak, outDir, decryptLuaOnly, decompileLua) { msg ->
                         logMessage += "$msg\n"
                     }
                     isProcessing = false
@@ -196,7 +196,7 @@ fun PAKUnpackScreen(navController: NavController) {
             shape = RoundedCornerShape(10.dp),
             enabled = !isProcessing && selectedFile != null
         ) {
-            Text(if (isProcessing) "Unpacking via Python..." else "Unpack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(if (isProcessing) "Unpacking..." else "Unpack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
         if (logMessage.isNotEmpty()) {

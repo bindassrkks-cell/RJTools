@@ -36,8 +36,7 @@ fun FilePickerDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (files.isEmpty()) {
-                    Text("No files detected in folder.", fontSize = 14.sp, color = TextSecondary)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("No matching files found.", fontSize = 14.sp, color = TextSecondary)
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 250.dp)) {
                         items(files) { file ->
