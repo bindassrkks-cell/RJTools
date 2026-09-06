@@ -1,0 +1,10 @@
+-keep class com.rjtool.app.** { *; }
+-keep class androidx.compose.** { *; }
+-keep class dagger.** { *; }
+-keep class javax.inject.** { *; }
+-keep class com.google.dagger.** { *; }
+-keep class androidx.datastore.** { *; }
+-keep class com.google.gson.** { *; }
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
