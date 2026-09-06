@@ -1,0 +1,29 @@
+# .github/workflows/All files push repo push .yml
+name: Auto Push
+
+on:
+  workflow_dispatch:   # manual trigger only
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump version (example)
+        run: |
+          echo "// Auto-generated version file" > version.txt
+          echo "Last build: $(date)" >> version.txt
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.txt
+          git commit -m "Auto-update version file" || echo "No changes"
+          git push
