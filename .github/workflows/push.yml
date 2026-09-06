@@ -13,21 +13,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create project source files and assets
+      - name: Clean legacy files & generate fresh source
         run: |
-          # 1. Create directories
+          # 1. Purani sabhi broken files clean karein
+          rm -rf app/src/main/java
+          rm -rf app/src/main/res
+          rm -rf app/src/main/assets
+
+          # 2. Directories create karein
           mkdir -p app/src/main/java/com/rjtool/app/ui/screens
-          mkdir -p app/src/main/java/com/rjtool/app/ui/theme
           mkdir -p app/src/main/java/com/rjtool/app/ui/components
           mkdir -p app/src/main/java/com/rjtool/app/utils
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
-          mkdir -p app/src/main/res/mipmap-hdpi
-          mkdir -p app/src/main/res/mipmap-mdpi
-          mkdir -p app/src/main/res/mipmap-xhdpi
-          mkdir -p app/src/main/res/mipmap-xxhdpi
-          mkdir -p app/src/main/res/mipmap-xxxhdpi
+          mkdir -p app/src/main/res/mipmap-anydpi-v26
 
           # ---------- assets/index.csv ----------
           cat > app/src/main/assets/index.csv <<'EOF'
@@ -40,7 +40,7 @@ jobs:
           Engine/Config/Android/AndroidEngine.ini
           EOF
 
-          # ---------- FileUtils.kt (Creates folders shown in screenshot) ----------
+          # ---------- FileUtils.kt (Folders creation) ----------
           cat > app/src/main/java/com/rjtool/app/utils/FileUtils.kt <<'EOF'
           package com.rjtool.app.utils
 
@@ -53,9 +53,7 @@ jobs:
               val ROOT_DIR = File(Environment.getExternalStorageDirectory(), "RJTOOL")
 
               fun initRJToolWorkspace(context: Context) {
-                  if (!ROOT_DIR.exists()) {
-                      ROOT_DIR.mkdirs()
-                  }
+                  if (!ROOT_DIR.exists()) ROOT_DIR.mkdirs()
                   val folders = listOf(
                       "EDITTED",
                       "LUA_ORIGINAL",
@@ -66,12 +64,9 @@ jobs:
                   )
                   folders.forEach { folderName ->
                       val dir = File(ROOT_DIR, folderName)
-                      if (!dir.exists()) {
-                          dir.mkdirs()
-                      }
+                      if (!dir.exists()) dir.mkdirs()
                   }
 
-                  // Copy index.csv to RJTOOL folder if not present
                   val targetCsv = File(ROOT_DIR, "index.csv")
                   if (!targetCsv.exists()) {
                       try {
@@ -86,7 +81,7 @@ jobs:
           }
           EOF
 
-          # ---------- TopHeader.kt (Matching top bar in screenshots) ----------
+          # ---------- TopHeader.kt ----------
           cat > app/src/main/java/com/rjtool/app/ui/components/TopHeader.kt <<'EOF'
           package com.rjtool.app.ui.components
 
@@ -121,30 +116,13 @@ jobs:
                           .background(Color(0xFFD6E2E6)),
                       contentAlignment = Alignment.Center
                   ) {
-                      Icon(
-                          imageVector = Icons.Default.Person,
-                          contentDescription = "Avatar",
-                          tint = Color(0xFF5F6368),
-                          modifier = Modifier.size(28.dp)
-                      )
+                      Icon(Icons.Default.Person, "Avatar", tint = Color(0xFF5F6368), modifier = Modifier.size(28.dp))
                   }
-
                   Spacer(modifier = Modifier.width(12.dp))
-
                   Column(modifier = Modifier.weight(1f)) {
-                      Text(
-                          text = "RJTOOL v1.0.59",
-                          fontSize = 20.sp,
-                          fontWeight = FontWeight.Bold,
-                          color = Color(0xFF1E1E1E)
-                      )
-                      Text(
-                          text = "TG @byrj6",
-                          fontSize = 14.sp,
-                          color = Color(0xFF757575)
-                      )
+                      Text("RJTOOL v1.0.59", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+                      Text("TG @byrj6", fontSize = 14.sp, color = Color(0xFF757575))
                   }
-
                   Box(
                       modifier = Modifier
                           .size(40.dp)
@@ -153,18 +131,13 @@ jobs:
                           .clickable { },
                       contentAlignment = Alignment.Center
                   ) {
-                      Icon(
-                          imageVector = Icons.Default.Settings,
-                          contentDescription = "Settings",
-                          tint = Color(0xFF2E7D32),
-                          modifier = Modifier.size(22.dp)
-                      )
+                      Icon(Icons.Default.Settings, "Settings", tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp))
                   }
               }
           }
           EOF
 
-          # ---------- HomeScreen.kt (Exact Home UI) ----------
+          # ---------- HomeScreen.kt ----------
           cat > app/src/main/java/com/rjtool/app/ui/screens/HomeScreen.kt <<'EOF'
           package com.rjtool.app.ui.screens
 
@@ -190,12 +163,7 @@ jobs:
           import androidx.compose.ui.unit.sp
           import com.rjtool.app.ui.components.TopHeader
 
-          data class HomeTool(
-              val title: String,
-              val subtitle: String,
-              val icon: ImageVector,
-              val onClick: () -> Unit
-          )
+          data class HomeTool(val title: String, val subtitle: String, val icon: ImageVector, val onClick: () -> Unit)
 
           @Composable
           fun HomeScreen(
@@ -218,18 +186,14 @@ jobs:
                       .padding(horizontal = 20.dp, vertical = 16.dp)
               ) {
                   TopHeader()
-
                   Spacer(modifier = Modifier.height(18.dp))
-
                   Text(
                       text = "${Build.MODEL} · Android ${Build.VERSION.RELEASE}",
                       fontSize = 13.5.sp,
                       fontWeight = FontWeight.Medium,
                       color = Color(0xFF757575)
                   )
-
                   Spacer(modifier = Modifier.height(14.dp))
-
                   Card(
                       modifier = Modifier.fillMaxWidth(),
                       colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -237,30 +201,14 @@ jobs:
                       elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                   ) {
                       Column(modifier = Modifier.padding(20.dp)) {
-                          Text(
-                              text = "Fixed workspace",
-                              fontSize = 17.sp,
-                              fontWeight = FontWeight.Bold,
-                              color = Color(0xFF1E1E1E)
-                          )
+                          Text("Fixed workspace", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
                           Spacer(modifier = Modifier.height(4.dp))
-                          Text(
-                              text = "/storage/emulated/0/RJTOOL",
-                              fontSize = 13.5.sp,
-                              color = Color(0xFF757575)
-                          )
+                          Text("/storage/emulated/0/RJTOOL", fontSize = 13.5.sp, color = Color(0xFF757575))
                           Spacer(modifier = Modifier.height(10.dp))
-                          Text(
-                              text = "Storage access granted",
-                              fontSize = 13.5.sp,
-                              fontWeight = FontWeight.SemiBold,
-                              color = Color(0xFF00875A)
-                          )
+                          Text("Storage access granted", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF00875A))
                       }
                   }
-
                   Spacer(modifier = Modifier.height(16.dp))
-
                   tools.forEach { tool ->
                       Card(
                           modifier = Modifier
@@ -284,37 +232,15 @@ jobs:
                                       .background(Color(0xFFE0F2F1)),
                                   contentAlignment = Alignment.Center
                               ) {
-                                  Icon(
-                                      imageVector = tool.icon,
-                                      contentDescription = tool.title,
-                                      tint = Color(0xFF00796B),
-                                      modifier = Modifier.size(26.dp)
-                                  )
+                                  Icon(tool.icon, tool.title, tint = Color(0xFF00796B), modifier = Modifier.size(26.dp))
                               }
-
                               Spacer(modifier = Modifier.width(16.dp))
-
                               Column(modifier = Modifier.weight(1f)) {
-                                  Text(
-                                      text = tool.title,
-                                      fontSize = 16.5.sp,
-                                      fontWeight = FontWeight.Bold,
-                                      color = Color(0xFF1E1E1E)
-                                  )
+                                  Text(tool.title, fontSize = 16.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
                                   Spacer(modifier = Modifier.height(2.dp))
-                                  Text(
-                                      text = tool.subtitle,
-                                      fontSize = 13.sp,
-                                      color = Color(0xFF757575)
-                                  )
+                                  Text(tool.subtitle, fontSize = 13.sp, color = Color(0xFF757575))
                               }
-
-                              Icon(
-                                  imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                                  contentDescription = "Go",
-                                  tint = Color(0xFF9E9E9E),
-                                  modifier = Modifier.size(16.dp)
-                              )
+                              Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, "Go", tint = Color(0xFF9E9E9E), modifier = Modifier.size(16.dp))
                           }
                       }
                   }
@@ -322,7 +248,7 @@ jobs:
           }
           EOF
 
-          # ---------- PAKUnpackScreen.kt (Exact Match to Screenshot 3) ----------
+          # ---------- PAKUnpackScreen.kt ----------
           cat > app/src/main/java/com/rjtool/app/ui/screens/PAKUnpackScreen.kt <<'EOF'
           package com.rjtool.app.ui.screens
 
@@ -339,7 +265,6 @@ jobs:
           import androidx.compose.runtime.*
           import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
-          import androidx.compose.ui.draw.clip
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.platform.LocalContext
           import androidx.compose.ui.text.font.FontWeight
@@ -355,12 +280,8 @@ jobs:
               var decryptLuaOnly by remember { mutableStateOf(false) }
               var decompileLua by remember { mutableStateOf(false) }
 
-              val filePickerLauncher = rememberLauncherForActivityResult(
-                  contract = ActivityResultContracts.GetContent()
-              ) { uri ->
-                  uri?.let {
-                      selectedFile = it.lastPathSegment?.substringAfterLast('/') ?: it.path
-                  }
+              val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                  uri?.let { selectedFile = it.lastPathSegment?.substringAfterLast('/') ?: it.path }
               }
 
               Column(
@@ -370,48 +291,21 @@ jobs:
                       .padding(horizontal = 20.dp, vertical = 16.dp)
               ) {
                   TopHeader()
-
                   Spacer(modifier = Modifier.height(20.dp))
-
-                  // Back Button Row
                   Row(
                       modifier = Modifier
                           .clickable { navController.popBackStack() }
                           .padding(vertical = 4.dp),
                       verticalAlignment = Alignment.CenterVertically
                   ) {
-                      Icon(
-                          imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                          contentDescription = "Back",
-                          tint = Color(0xFF00796B),
-                          modifier = Modifier.size(15.dp)
-                      )
+                      Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = Color(0xFF00796B), modifier = Modifier.size(15.dp))
                       Spacer(modifier = Modifier.width(4.dp))
-                      Text(
-                          text = "Back",
-                          color = Color(0xFF00796B),
-                          fontSize = 16.sp,
-                          fontWeight = FontWeight.Bold
-                      )
+                      Text("Back", color = Color(0xFF00796B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                   }
-
                   Spacer(modifier = Modifier.height(12.dp))
-
-                  Text(
-                      text = "PAK Unpack",
-                      fontSize = 24.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = Color(0xFF1E1E1E)
-                  )
-                  Text(
-                      text = "PAK -> files",
-                      fontSize = 14.sp,
-                      color = Color(0xFF757575)
-                  )
-
+                  Text("PAK Unpack", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+                  Text("PAK -> files", fontSize = 14.sp, color = Color(0xFF757575))
                   Spacer(modifier = Modifier.height(20.dp))
-
-                  // Choose File Card
                   Card(
                       modifier = Modifier.fillMaxWidth(),
                       colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -426,38 +320,21 @@ jobs:
                           horizontalArrangement = Arrangement.SpaceBetween
                       ) {
                           Column(modifier = Modifier.weight(1f)) {
-                              Text(
-                                  text = "Choose PAK files · PAK_ORIGINAL",
-                                  fontSize = 15.sp,
-                                  fontWeight = FontWeight.Bold,
-                                  color = Color(0xFF1E1E1E)
-                              )
+                              Text("Choose PAK files · PAK_ORIGINAL", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
                               Spacer(modifier = Modifier.height(4.dp))
-                              Text(
-                                  text = selectedFile ?: "Not selected",
-                                  fontSize = 13.sp,
-                                  color = Color(0xFF757575)
-                              )
+                              Text(selectedFile ?: "Not selected", fontSize = 13.sp, color = Color(0xFF757575))
                           }
                           Button(
-                              onClick = { filePickerLauncher.launch("*/*") },
+                              onClick = { filePicker.launch("*/*") },
                               colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0F2F1)),
                               shape = RoundedCornerShape(8.dp),
                               contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                           ) {
-                              Text(
-                                  text = "Choose",
-                                  color = Color(0xFF00796B),
-                                  fontWeight = FontWeight.Bold,
-                                  fontSize = 14.sp
-                              )
+                              Text("Choose", color = Color(0xFF00796B), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                           }
                       }
                   }
-
                   Spacer(modifier = Modifier.height(14.dp))
-
-                  // Fixed Output Directory Card
                   Card(
                       modifier = Modifier.fillMaxWidth(),
                       colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -465,24 +342,12 @@ jobs:
                       elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
                   ) {
                       Column(modifier = Modifier.padding(18.dp)) {
-                          Text(
-                              text = "Fixed output directory",
-                              fontSize = 15.sp,
-                              fontWeight = FontWeight.Bold,
-                              color = Color(0xFF1E1E1E)
-                          )
+                          Text("Fixed output directory", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
                           Spacer(modifier = Modifier.height(4.dp))
-                          Text(
-                              text = "/storage/emulated/0/RJTOOL/PAK_UNPACK",
-                              fontSize = 13.sp,
-                              color = Color(0xFF757575)
-                          )
+                          Text("/storage/emulated/0/RJTOOL/PAK_UNPACK", fontSize = 13.sp, color = Color(0xFF757575))
                       }
                   }
-
                   Spacer(modifier = Modifier.height(14.dp))
-
-                  // Options Checkbox Card
                   Card(
                       modifier = Modifier.fillMaxWidth(),
                       colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -502,16 +367,9 @@ jobs:
                                   colors = CheckboxDefaults.colors(checkedColor = Color(0xFF00796B))
                               )
                               Spacer(modifier = Modifier.width(6.dp))
-                              Text(
-                                  text = "Decrypt .lua files only",
-                                  fontSize = 14.5.sp,
-                                  fontWeight = FontWeight.Bold,
-                                  color = Color(0xFF1E1E1E)
-                              )
+                              Text("Decrypt .lua files only", fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
                           }
-
                           Spacer(modifier = Modifier.height(8.dp))
-
                           Row(
                               verticalAlignment = Alignment.Top,
                               modifier = Modifier
@@ -525,7 +383,7 @@ jobs:
                               )
                               Spacer(modifier = Modifier.width(6.dp))
                               Text(
-                                  text = "Also decompile Lua and replace the original bytecode",
+                                  "Also decompile Lua and replace the original bytecode",
                                   fontSize = 14.5.sp,
                                   fontWeight = FontWeight.Bold,
                                   color = Color(0xFF1E1E1E),
@@ -534,10 +392,7 @@ jobs:
                           }
                       }
                   }
-
                   Spacer(modifier = Modifier.height(26.dp))
-
-                  // Unpack Button
                   Button(
                       onClick = {
                           if (selectedFile == null) {
@@ -554,18 +409,13 @@ jobs:
                       ),
                       shape = RoundedCornerShape(10.dp)
                   ) {
-                      Text(
-                          text = "Unpack PAK",
-                          fontSize = 16.sp,
-                          fontWeight = FontWeight.Bold,
-                          color = Color.White
-                      )
+                      Text("Unpack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                   }
               }
           }
           EOF
 
-          # ---------- Other Screens (Repack, Decompile, Compile) ----------
+          # ---------- Other Sub Screens ----------
           cat > app/src/main/java/com/rjtool/app/ui/screens/PAKRepackScreen.kt <<'EOF'
           package com.rjtool.app.ui.screens
 
@@ -588,18 +438,10 @@ jobs:
 
           @Composable
           fun PAKRepackScreen(navController: NavController) {
-              Column(
-                  modifier = Modifier
-                      .fillMaxSize()
-                      .background(Color(0xFFF7F9FA))
-                      .padding(horizontal = 20.dp, vertical = 16.dp)
-              ) {
+              Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF7F9FA)).padding(20.dp)) {
                   TopHeader()
                   Spacer(modifier = Modifier.height(20.dp))
-                  Row(
-                      modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp),
-                      verticalAlignment = Alignment.CenterVertically
-                  ) {
+                  Row(modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                       Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = Color(0xFF00796B), modifier = Modifier.size(15.dp))
                       Spacer(modifier = Modifier.width(4.dp))
                       Text("Back", color = Color(0xFF00796B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -607,18 +449,6 @@ jobs:
                   Spacer(modifier = Modifier.height(12.dp))
                   Text("PAK Repack", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                   Text("EDITTED -> PAK", fontSize = 14.sp, color = Color(0xFF757575))
-                  Spacer(modifier = Modifier.height(20.dp))
-                  Card(
-                      modifier = Modifier.fillMaxWidth(),
-                      colors = CardDefaults.cardColors(containerColor = Color.White),
-                      shape = RoundedCornerShape(16.dp)
-                  ) {
-                      Column(modifier = Modifier.padding(18.dp)) {
-                          Text("Source Folder: /storage/emulated/0/RJTOOL/EDITTED", fontWeight = FontWeight.Bold)
-                          Spacer(modifier = Modifier.height(6.dp))
-                          Text("Output Folder: /storage/emulated/0/RJTOOL/RESULT_PAK", color = Color(0xFF757575))
-                      }
-                  }
               }
           }
           EOF
@@ -629,7 +459,6 @@ jobs:
           import androidx.compose.foundation.background
           import androidx.compose.foundation.clickable
           import androidx.compose.foundation.layout.*
-          import androidx.compose.foundation.shape.RoundedCornerShape
           import androidx.compose.material.icons.Icons
           import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
           import androidx.compose.material3.*
@@ -645,18 +474,10 @@ jobs:
 
           @Composable
           fun LUADecompileScreen(navController: NavController) {
-              Column(
-                  modifier = Modifier
-                      .fillMaxSize()
-                      .background(Color(0xFFF7F9FA))
-                      .padding(horizontal = 20.dp, vertical = 16.dp)
-              ) {
+              Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF7F9FA)).padding(20.dp)) {
                   TopHeader()
                   Spacer(modifier = Modifier.height(20.dp))
-                  Row(
-                      modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp),
-                      verticalAlignment = Alignment.CenterVertically
-                  ) {
+                  Row(modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                       Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = Color(0xFF00796B), modifier = Modifier.size(15.dp))
                       Spacer(modifier = Modifier.width(4.dp))
                       Text("Back", color = Color(0xFF00796B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -674,7 +495,6 @@ jobs:
           import androidx.compose.foundation.background
           import androidx.compose.foundation.clickable
           import androidx.compose.foundation.layout.*
-          import androidx.compose.foundation.shape.RoundedCornerShape
           import androidx.compose.material.icons.Icons
           import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
           import androidx.compose.material3.*
@@ -690,18 +510,10 @@ jobs:
 
           @Composable
           fun LUACompileScreen(navController: NavController) {
-              Column(
-                  modifier = Modifier
-                      .fillMaxSize()
-                      .background(Color(0xFFF7F9FA))
-                      .padding(horizontal = 20.dp, vertical = 16.dp)
-              ) {
+              Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF7F9FA)).padding(20.dp)) {
                   TopHeader()
                   Spacer(modifier = Modifier.height(20.dp))
-                  Row(
-                      modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp),
-                      verticalAlignment = Alignment.CenterVertically
-                  ) {
+                  Row(modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                       Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = Color(0xFF00796B), modifier = Modifier.size(15.dp))
                       Spacer(modifier = Modifier.width(4.dp))
                       Text("Back", color = Color(0xFF00796B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -735,10 +547,7 @@ jobs:
                   super.onCreate(savedInstanceState)
                   FileUtils.initRJToolWorkspace(this)
                   setContent {
-                      Surface(
-                          modifier = Modifier.fillMaxSize(),
-                          color = Color(0xFFF7F9FA)
-                      ) {
+                      Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF7F9FA)) {
                           val navController = rememberNavController()
                           NavHost(navController = navController, startDestination = "home") {
                               composable("home") {
@@ -793,7 +602,7 @@ jobs:
           </manifest>
           EOF
 
-          # ---------- Drawables & Values ----------
+          # ---------- Drawables & Icons (API 26 Safe) ----------
           cat > app/src/main/res/drawable/ic_launcher_foreground.xml <<'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
               android:width="108dp"
@@ -806,22 +615,21 @@ jobs:
           </vector>
           EOF
 
-          for res in mipmap-hdpi mipmap-mdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
-              cat > app/src/main/res/$res/ic_launcher.xml <<'EOF'
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
               <background android:drawable="@color/ic_launcher_background"/>
               <foreground android:drawable="@drawable/ic_launcher_foreground"/>
           </adaptive-icon>
           EOF
-              cat > app/src/main/res/$res/ic_launcher_round.xml <<'EOF'
+
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
               <background android:drawable="@color/ic_launcher_background"/>
               <foreground android:drawable="@drawable/ic_launcher_foreground"/>
           </adaptive-icon>
           EOF
-          done
 
           echo '<resources><color name="ic_launcher_background">#F7F9FA</color></resources>' > app/src/main/res/values/colors.xml
           echo '<resources><string name="app_name">RJTOOL</string></resources>' > app/src/main/res/values/strings.xml
@@ -840,7 +648,7 @@ jobs:
 
               defaultConfig {
                   applicationId = "com.rjtool.app"
-                  minSdk = 24
+                  minSdk = 26
                   targetSdk = 34
                   versionCode = 1
                   versionName = "1.0.59"
@@ -851,6 +659,7 @@ jobs:
               buildTypes {
                   release {
                       isMinifyEnabled = false
+                      signingConfig = signingConfigs.getByName("debug")
                       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
                   }
               }
@@ -877,55 +686,12 @@ jobs:
           }
           EOF
 
-          # ---------- build.gradle.kts (Project Level) ----------
-          cat > build.gradle.kts <<'EOF'
-          plugins {
-              id("com.android.application") version "8.2.2" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.22" apply false
-          }
-          EOF
-
-          # ---------- settings.gradle.kts ----------
-          cat > settings.gradle.kts <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "RJTOOL"
-          include(":app")
-          EOF
-
-          # ---------- gradle.properties ----------
-          cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m
-          android.useAndroidX=true
-          android.enableJetifier=true
-          kotlin.code.style=official
-          EOF
-
-      - name: Generate Gradle Wrapper
-        run: |
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.5 --distribution-type bin
-          fi
-          chmod +x gradlew
-
-      - name: Commit and push source files to repository
+      - name: Sync Git (Delete Old Stale Files & Commit Clean Source)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Configure full RJTOOL v1.0.59 sources [skip ci]" || echo "No changes to commit"
+          git add -A
+          git commit -m "Remove legacy broken files & setup UI matching screenshots [skip ci]" || echo "No changes"
           git push
 
       - name: Set up JDK 17
@@ -938,12 +704,19 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Ensure Gradle Wrapper Executable
+        run: |
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper --gradle-version 8.5 --distribution-type bin
+          fi
+          chmod +x gradlew
+
       - name: Build Release APK
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RJTOOL-v1.0.59
+          name: RJTOOL-v1.0.59-Release
           path: app/build/outputs/apk/release/*.apk
           retention-days: 30
