@@ -1,0 +1,36 @@
+# .github/workflows/mising fixed . mising .yml
+name: Check Missing Files
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: List required files
+        id: files
+        run: |
+          MISSING=()
+          for f in "app/src/main/java/com/rjtool/app/MainActivity.kt" \
+                    "app/src/main/java/com/rjtool/app/ui/screens/HomeScreen.kt" \
+                    "app/build.gradle.kts" \
+                    "settings.gradle.kts" \
+                    "gradle.properties" \
+                    "app/src/main/AndroidManifest.xml"; do
+            if [ ! -f "$f" ]; then
+              MISSING+=("$f")
+            fi
+          done
+          if [ ${#MISSING[@]} -ne 0 ]; then
+            echo "Missing files:"
+            printf '  - %s\n' "${MISSING[@]}"
+            exit 1
+          else
+            echo "All required files are present."
+          fi
