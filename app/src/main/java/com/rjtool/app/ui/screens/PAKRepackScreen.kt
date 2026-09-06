@@ -19,18 +19,10 @@ import com.rjtool.app.ui.components.TopHeader
 
 @Composable
 fun PAKRepackScreen(navController: NavController) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF7F9FA))
-            .padding(horizontal = 20.dp, vertical = 16.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF7F9FA)).padding(20.dp)) {
         TopHeader()
         Spacer(modifier = Modifier.height(20.dp))
-        Row(
-            modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = Color(0xFF00796B), modifier = Modifier.size(15.dp))
             Spacer(modifier = Modifier.width(4.dp))
             Text("Back", color = Color(0xFF00796B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -38,17 +30,5 @@ fun PAKRepackScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(12.dp))
         Text("PAK Repack", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text("EDITTED -> PAK", fontSize = 14.sp, color = Color(0xFF757575))
-        Spacer(modifier = Modifier.height(20.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Text("Source: /storage/emulated/0/RJTOOL/EDITTED", fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(6.dp))
-                Text("Target: /storage/emulated/0/RJTOOL/RESULT_PAK", color = Color(0xFF757575))
-            }
-        }
     }
 }
