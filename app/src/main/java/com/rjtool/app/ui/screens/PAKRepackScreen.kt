@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,19 +29,21 @@ import java.io.File
 
 @Composable
 fun PAKRepackScreen(navController: NavController) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var selectedPak by remember { mutableStateOf<File?>(null) }
     var showPickerDialog by remember { mutableStateOf(false) }
     var enableCustomRepack by remember { mutableStateOf(true) }
-    var selectedMode by remember { mutableStateOf(2) } // 1 = match index.csv, 2 = EDITTED directory structure
+    var selectedMode by remember { mutableStateOf(2) }
     var isProcessing by remember { mutableStateOf(false) }
     var logMessage by remember { mutableStateOf("") }
 
+    val pakFiles = remember { FileUtils.getFilesInFolder("PAK_ORIGINAL", listOf(".pak")) }
+
     if (showPickerDialog) {
-        val files = FileUtils.getFilesInFolder("PAK_ORIGINAL", ".pak")
         FilePickerDialog(
             title = "Choose original PAK files",
-            files = files,
+            files = pakFiles,
             onDismiss = { showPickerDialog = false },
             onFileSelected = { selectedPak = it }
         )
@@ -68,7 +71,6 @@ fun PAKRepackScreen(navController: NavController) {
         Text("EDITTED -> PAK", fontSize = 14.sp, color = TextSecondary)
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Choose original PAK files
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = DarkCardBg),
@@ -96,7 +98,6 @@ fun PAKRepackScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Screenshot 2 Repack Options
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = DarkCardBg),
@@ -118,7 +119,6 @@ fun PAKRepackScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Radio 1: Match paths using index.csv
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { selectedMode = 1 }.padding(vertical = 4.dp)
@@ -132,7 +132,6 @@ fun PAKRepackScreen(navController: NavController) {
                     Text("1. Match paths using index.csv", fontSize = 14.sp, color = TextPrimary)
                 }
 
-                // Radio 2: Use the EDITTED directory structure
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { selectedMode = 2 }.padding(vertical = 4.dp)
@@ -157,9 +156,9 @@ fun PAKRepackScreen(navController: NavController) {
                 val sourceDir = File(FileUtils.ROOT_DIR, "EDITTED")
 
                 isProcessing = true
-                logMessage = "Starting repack into ${targetPak.name}...\n"
+                logMessage = "Repacking via Python engine: ${targetPak.name}...\n"
                 scope.launch {
-                    PakEngine.repackPak(sourceDir, targetPak, selectedMode == 1) { msg, _ ->
+                    PakEngine.repackPakWithPython(context, sourceDir, targetPak, selectedMode == 1) { msg ->
                         logMessage += "$msg\n"
                     }
                     isProcessing = false
@@ -170,7 +169,7 @@ fun PAKRepackScreen(navController: NavController) {
             shape = RoundedCornerShape(10.dp),
             enabled = !isProcessing
         ) {
-            Text(if (isProcessing) "Repacking..." else "Repack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(if (isProcessing) "Repacking via Python..." else "Repack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
         if (logMessage.isNotEmpty()) {

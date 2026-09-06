@@ -12,11 +12,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.rjtool.app.ui.components.FilePickerDialog
 import com.rjtool.app.ui.components.TopHeader
 import com.rjtool.app.ui.theme.*
 import com.rjtool.app.utils.FileUtils
@@ -29,10 +31,22 @@ import java.io.RandomAccessFile
 @Composable
 fun SizeFixerScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
-    var filenameInput by remember { mutableStateOf("") }
+    var selectedFile by remember { mutableStateOf<File?>(null) }
+    var showPickerDialog by remember { mutableStateOf(false) }
     var targetSizeInput by remember { mutableStateOf("15.01M") }
     var logMessage by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
+
+    val resultPakFiles = remember { FileUtils.getFilesInFolder("RESULT_PAK") }
+
+    if (showPickerDialog) {
+        FilePickerDialog(
+            title = "Choose File in RESULT_PAK",
+            files = resultPakFiles,
+            onDismiss = { showPickerDialog = false },
+            onFileSelected = { selectedFile = it }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -53,7 +67,7 @@ fun SizeFixerScreen(navController: NavController) {
         }
         Spacer(modifier = Modifier.height(12.dp))
         Text("Size Fixer", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Text("Pad file to exact required size", fontSize = 14.sp, color = TextSecondary)
+        Text("Auto-detect from RESULT_PAK & pad to target", fontSize = 14.sp, color = TextSecondary)
         Spacer(modifier = Modifier.height(20.dp))
 
         Card(
@@ -61,31 +75,45 @@ fun SizeFixerScreen(navController: NavController) {
             colors = CardDefaults.cardColors(containerColor = DarkCardBg),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Text("Workspace files in RESULT_PAK or EDITTED", fontWeight = FontWeight.Bold, color = TextPrimary)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = filenameInput,
-                    onValueChange = { filenameInput = it },
-                    label = { Text("Filename (e.g. repacked.pak)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = targetSizeInput,
-                    onValueChange = { targetSizeInput = it },
-                    label = { Text("Target Size (e.g. 15.01M)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Target file · RESULT_PAK", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(selectedFile?.name ?: "Not selected", fontSize = 13.sp, color = TextSecondary)
+                }
+                Button(
+                    onClick = { showPickerDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A34)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Choose", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
             }
         }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        OutlinedTextField(
+            value = targetSizeInput,
+            onValueChange = { targetSizeInput = it },
+            label = { Text("Target Size (e.g., 15.01M, 15738880)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
         Button(
             onClick = {
+                val file = selectedFile
+                if (file == null || !file.exists()) {
+                    logMessage += "❌ Please select a file from RESULT_PAK first!\n"
+                    return@Button
+                }
                 val trimmed = targetSizeInput.trim().uppercase()
                 val targetBytes = when {
                     trimmed.endsWith("MB") -> (trimmed.removeSuffix("MB").toDoubleOrNull() ?: 0.0) * 1024 * 1024
@@ -95,31 +123,20 @@ fun SizeFixerScreen(navController: NavController) {
                     else -> trimmed.toDoubleOrNull() ?: 0.0
                 }.toLong()
 
-                val candidateFiles = listOf(
-                    File(FileUtils.ROOT_DIR, "RESULT_PAK/$filenameInput"),
-                    File(FileUtils.ROOT_DIR, "EDITTED/$filenameInput"),
-                    File(FileUtils.ROOT_DIR, filenameInput)
-                )
-                val target = candidateFiles.firstOrNull { it.exists() && it.isFile }
-                if (target == null) {
-                    logMessage += "❌ File $filenameInput not found in RJTOOL folders!\n"
-                    return@Button
-                }
-
                 isProcessing = true
                 scope.launch {
                     withContext(Dispatchers.IO) {
-                        val oldLen = target.length()
-                        RandomAccessFile(target, "rw").use { it.setLength(targetBytes) }
-                        logMessage += "Fixed: ${target.name}\nOld: $oldLen B -> New: ${target.length()} B\n"
+                        val oldLen = file.length()
+                        RandomAccessFile(file, "rw").use { it.setLength(targetBytes) }
+                        logMessage += "✅ Fixed ${file.name}\nOld: $oldLen B -> New: ${file.length()} B\n"
                     }
                     isProcessing = false
                 }
             },
             modifier = Modifier.fillMaxWidth().height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = ButtonGreen),
+            colors = ButtonDefaults.buttonColors(containerColor = if (selectedFile != null) ButtonGreen else ButtonDisabled),
             shape = RoundedCornerShape(10.dp),
-            enabled = !isProcessing
+            enabled = !isProcessing && selectedFile != null
         ) {
             Text("Apply Exact Size", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
@@ -134,5 +151,6 @@ fun SizeFixerScreen(navController: NavController) {
                 Text(text = logMessage, color = AccentTeal, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.padding(14.dp))
             }
         }
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }

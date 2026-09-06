@@ -20,6 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.rjtool.app.engine.FloatMatch
+import com.rjtool.app.engine.HexEngine
+import com.rjtool.app.ui.components.FilePickerDialog
 import com.rjtool.app.ui.components.TopHeader
 import com.rjtool.app.ui.theme.*
 import com.rjtool.app.utils.FileUtils
@@ -35,16 +38,28 @@ data class HexRow(val offset: Long, val bytes: List<Byte>, val ascii: String)
 fun HexEditorScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var filenameInput by remember { mutableStateOf("index.csv") }
+    var selectedFile by remember { mutableStateOf<File?>(null) }
+    var showPickerDialog by remember { mutableStateOf(false) }
+
     var currentOffset by remember { mutableStateOf(0L) }
     var rows by remember { mutableStateOf<List<HexRow>>(emptyList()) }
     var editOffsetStr by remember { mutableStateOf("") }
     var editByteHexStr by remember { mutableStateOf("") }
 
-    fun loadPage(offset: Long) {
+    var isHeadshotMode by remember { mutableStateOf(false) }
+    var floatMatches by remember { mutableStateOf<List<FloatMatch>>(emptyList()) }
+    var newFloatInput by remember { mutableStateOf("2.5") }
+
+    val uexpFiles = remember {
+        FileUtils.getFilesInFolder("EDITTED", listOf(".uexp", ".uasset")) +
+        FileUtils.getFilesInFolder("PAK_UNPACK", listOf(".uexp", ".uasset")) +
+        FileUtils.getFilesInFolder("RESULT_PAK", listOf(".uexp", ".uasset"))
+    }
+
+    fun loadHexPage(offset: Long) {
+        val file = selectedFile ?: return
         scope.launch {
             withContext(Dispatchers.IO) {
-                val file = File(FileUtils.ROOT_DIR, filenameInput)
                 if (!file.exists()) return@withContext
                 RandomAccessFile(file, "r").use { raf ->
                     raf.seek(offset)
@@ -65,6 +80,19 @@ fun HexEditorScreen(navController: NavController) {
         }
     }
 
+    if (showPickerDialog) {
+        FilePickerDialog(
+            title = "Select .uexp / .uasset File",
+            files = uexpFiles,
+            onDismiss = { showPickerDialog = false },
+            onFileSelected = {
+                selectedFile = it
+                loadHexPage(0L)
+                floatMatches = HexEngine.scanHeadshotAndFloats(it)
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -82,22 +110,88 @@ fun HexEditorScreen(navController: NavController) {
             Text("Back", color = AccentTeal, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(6.dp))
-        Text("Hex Editor", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("Hex & Asset Editor", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = DarkCardBg),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("File: ${selectedFile?.name ?: "Tap Choose to select .uexp"}", fontSize = 14.sp, color = TextPrimary, fontWeight = FontWeight.Bold)
+                    Text("Folder: ${selectedFile?.parentFile?.name ?: "None"}", fontSize = 12.sp, color = TextSecondary)
+                }
+                Button(
+                    onClick = { showPickerDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A34)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Choose", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = filenameInput,
-                onValueChange = { filenameInput = it },
-                label = { Text("File in RJTOOL") },
-                modifier = Modifier.weight(1f),
-                singleLine = true
-            )
-            Button(
-                onClick = { loadPage(0L) },
-                colors = ButtonDefaults.buttonColors(containerColor = ButtonGreen)
-            ) {
-                Text("Load")
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = DarkCardBg),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable { isHeadshotMode = !isHeadshotMode }
+                ) {
+                    Checkbox(
+                        checked = isHeadshotMode,
+                        onCheckedChange = { isHeadshotMode = it },
+                        colors = CheckboxDefaults.colors(checkedColor = AccentTeal, uncheckedColor = TextSecondary)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Headshot / Damage Multiplier Scan", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
+
+                if (isHeadshotMode) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (floatMatches.isEmpty()) {
+                        Text("No float patterns detected in current file.", fontSize = 12.sp, color = TextSecondary)
+                    } else {
+                        floatMatches.forEach { match ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(match.label, fontSize = 13.sp, color = AccentTeal, fontWeight = FontWeight.Bold)
+                                    Text("Offset: 0x${match.offset.toString(16).uppercase()} · Val: ${match.originalValue}", fontSize = 11.sp, color = TextSecondary)
+                                }
+                                Button(
+                                    onClick = {
+                                        val f = newFloatInput.toFloatOrNull() ?: 2.5f
+                                        selectedFile?.let { file ->
+                                            HexEngine.writeFloatAtOffset(file, match.offset, f)
+                                            Toast.makeText(context, "Patched to $f!", Toast.LENGTH_SHORT).show()
+                                            loadHexPage(currentOffset)
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = ButtonGreen),
+                                    shape = RoundedCornerShape(6.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Patch $newFloatInput", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -124,21 +218,23 @@ fun HexEditorScreen(navController: NavController) {
                         try {
                             val off = editOffsetStr.toLong(16)
                             val byteVal = editByteHexStr.toInt(16).toByte()
-                            val file = File(FileUtils.ROOT_DIR, filenameInput)
-                            withContext(Dispatchers.IO) {
-                                RandomAccessFile(file, "rw").use { raf ->
-                                    raf.seek(off)
-                                    raf.write(byteArrayOf(byteVal))
+                            selectedFile?.let { file ->
+                                withContext(Dispatchers.IO) {
+                                    RandomAccessFile(file, "rw").use { raf ->
+                                        raf.seek(off)
+                                        raf.write(byteArrayOf(byteVal))
+                                    }
                                 }
+                                Toast.makeText(context, "Byte saved to disk!", Toast.LENGTH_SHORT).show()
+                                loadHexPage(currentOffset)
                             }
-                            Toast.makeText(context, "Byte saved to disk!", Toast.LENGTH_SHORT).show()
-                            loadPage(currentOffset)
                         } catch (e: Exception) {
                             Toast.makeText(context, "Edit failed: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = AccentTeal)
+                colors = ButtonDefaults.buttonColors(containerColor = ButtonGreen),
+                modifier = Modifier.align(Alignment.CenterVertically)
             ) {
                 Text("Save")
             }
@@ -173,7 +269,7 @@ fun HexEditorScreen(navController: NavController) {
                             color = Color(0xFF00E5FF),
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
-                            modifier = Modifier.width(80.dp)
+                            modifier = Modifier.width(75.dp)
                         )
                     }
                 }
@@ -182,17 +278,20 @@ fun HexEditorScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            OutlinedButton(onClick = { if (currentOffset >= 256) loadPage(currentOffset - 256) }) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedButton(onClick = { if (currentOffset >= 256) loadHexPage(currentOffset - 256) }) {
                 Text("<< Prev")
             }
             Text(
                 text = "Offset: 0x${currentOffset.toString(16).uppercase()}",
-                modifier = Modifier.align(Alignment.CenterVertically),
                 fontSize = 12.sp,
                 color = TextSecondary
             )
-            OutlinedButton(onClick = { loadPage(currentOffset + 256) }) {
+            OutlinedButton(onClick = { loadHexPage(currentOffset + 256) }) {
                 Text("Next >>")
             }
         }

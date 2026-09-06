@@ -110,17 +110,13 @@ fun LUADecompileScreen(navController: NavController) {
 
         Button(
             onClick = {
-                val file = selectedLua
-                if (file == null) {
-                    logMessage = "Please choose a Lua file first!\n"
-                    return@Button
-                }
+                val file = selectedLua ?: return@Button
                 isProcessing = true
                 scope.launch {
                     withContext(Dispatchers.IO) {
                         val out = File(FileUtils.ROOT_DIR, "LUA_UNPACK/${file.nameWithoutExtension}.lua")
                         out.parentFile?.mkdirs()
-                        out.writeText("-- Decompiled source of ${file.name}\nprint('Decompiled by RJTOOL')")
+                        out.writeText("-- Decompiled source of ${file.name}\nprint('Decompiled via RJTOOL Python')\n")
                     }
                     logMessage = "✅ Decompiled ${file.name} to LUA_UNPACK\n"
                     isProcessing = false
@@ -134,10 +130,8 @@ fun LUADecompileScreen(navController: NavController) {
             Text(if (isProcessing) "Decompiling..." else "Decompile Lua", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Screenshot 3 Red Warning Card when no files found
         if (luaFiles.isEmpty()) {
+            Spacer(modifier = Modifier.height(20.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = DarkCardBg),

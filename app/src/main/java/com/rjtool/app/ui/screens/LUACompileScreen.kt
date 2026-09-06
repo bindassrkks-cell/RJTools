@@ -110,8 +110,7 @@ fun LUACompileScreen(navController: NavController) {
 
         Button(
             onClick = {
-                val file = selectedLua
-                if (file == null) return@Button
+                val file = selectedLua ?: return@Button
                 isProcessing = true
                 scope.launch {
                     withContext(Dispatchers.IO) {

@@ -1,6 +1,7 @@
 package com.rjtool.app.ui.screens
 
-import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,6 +31,7 @@ import java.io.File
 
 @Composable
 fun PAKUnpackScreen(navController: NavController) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var selectedFile by remember { mutableStateOf<File?>(null) }
     var decryptLuaOnly by remember { mutableStateOf(false) }
@@ -36,11 +40,24 @@ fun PAKUnpackScreen(navController: NavController) {
     var isProcessing by remember { mutableStateOf(false) }
     var logMessage by remember { mutableStateOf("") }
 
+    val detectedPakFiles = remember { FileUtils.getFilesInFolder("PAK_ORIGINAL", listOf(".pak")) }
+
+    val safPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            val resolved = FileUtils.resolveUriToFile(context, it, "PAK_ORIGINAL")
+            if (resolved != null && resolved.exists()) {
+                selectedFile = resolved
+                logMessage += "Selected: ${resolved.name} (${resolved.length()} bytes)\n"
+            } else {
+                logMessage += "❌ Could not read SAF file.\n"
+            }
+        }
+    }
+
     if (showPickerDialog) {
-        val files = FileUtils.getFilesInFolder("PAK_ORIGINAL", ".pak")
         FilePickerDialog(
             title = "Choose original PAK files",
-            files = files,
+            files = detectedPakFiles,
             onDismiss = { showPickerDialog = false },
             onFileSelected = { selectedFile = it }
         )
@@ -56,9 +73,7 @@ fun PAKUnpackScreen(navController: NavController) {
         TopHeader()
         Spacer(modifier = Modifier.height(20.dp))
         Row(
-            modifier = Modifier
-                .clickable { navController.popBackStack() }
-                .padding(vertical = 4.dp),
+            modifier = Modifier.clickable { navController.popBackStack() }.padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBackIos, "Back", tint = AccentTeal, modifier = Modifier.size(15.dp))
@@ -86,7 +101,13 @@ fun PAKUnpackScreen(navController: NavController) {
                     Text(selectedFile?.name ?: "Not selected", fontSize = 13.sp, color = TextSecondary)
                 }
                 Button(
-                    onClick = { showPickerDialog = true },
+                    onClick = {
+                        if (detectedPakFiles.isNotEmpty()) {
+                            showPickerDialog = true
+                        } else {
+                            safPickerLauncher.launch("*/*")
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A34)),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -156,15 +177,15 @@ fun PAKUnpackScreen(navController: NavController) {
         Button(
             onClick = {
                 val pak = selectedFile
-                if (pak == null) {
-                    logMessage += "❌ Please choose a .pak file from PAK_ORIGINAL first!\n"
+                if (pak == null || !pak.exists()) {
+                    logMessage += "❌ Please select a valid PAK file first!\n"
                     return@Button
                 }
                 isProcessing = true
-                logMessage = "Extracting ${pak.name}...\n"
+                logMessage = "Starting Python extraction: ${pak.name}...\n"
                 scope.launch {
                     val outDir = File(FileUtils.ROOT_DIR, "PAK_UNPACK")
-                    PakEngine.unpackPak(pak, outDir, decryptLuaOnly, decompileLua) { msg, _ ->
+                    PakEngine.unpackPakWithPython(context, pak, outDir, decryptLuaOnly) { msg ->
                         logMessage += "$msg\n"
                     }
                     isProcessing = false
@@ -173,9 +194,9 @@ fun PAKUnpackScreen(navController: NavController) {
             modifier = Modifier.fillMaxWidth().height(50.dp),
             colors = ButtonDefaults.buttonColors(containerColor = if (selectedFile != null) ButtonGreen else ButtonDisabled),
             shape = RoundedCornerShape(10.dp),
-            enabled = !isProcessing
+            enabled = !isProcessing && selectedFile != null
         ) {
-            Text(if (isProcessing) "Unpacking..." else "Unpack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(if (isProcessing) "Unpacking via Python..." else "Unpack PAK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
         if (logMessage.isNotEmpty()) {

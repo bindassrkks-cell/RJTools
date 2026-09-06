@@ -1,6 +1,5 @@
 package com.rjtool.app.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,13 +23,11 @@ fun FilePickerDialog(
     onDismiss: () -> Unit,
     onFileSelected: (File) -> Unit
 ) {
-    var tempSelectedFile by remember { mutableStateOf<File?>(files.firstOrNull()) }
+    var tempSelected by remember { mutableStateOf<File?>(files.firstOrNull()) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = DarkDialogBg)
         ) {
@@ -40,32 +36,25 @@ fun FilePickerDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (files.isEmpty()) {
-                    Text("No matching files found in this folder.", fontSize = 14.sp, color = TextSecondary)
+                    Text("No files detected in folder.", fontSize = 14.sp, color = TextSecondary)
+                    Spacer(modifier = Modifier.height(8.dp))
                 } else {
-                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp)) {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 250.dp)) {
                         items(files) { file ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { tempSelectedFile = file }
+                                    .clickable { tempSelected = file }
                                     .padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Checkbox(
-                                    checked = tempSelectedFile == file,
-                                    onCheckedChange = { if (it) tempSelectedFile = file },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = AccentTeal,
-                                        uncheckedColor = TextSecondary
-                                    )
+                                    checked = tempSelected == file,
+                                    onCheckedChange = { if (it) tempSelected = file },
+                                    colors = CheckboxDefaults.colors(checkedColor = AccentTeal, uncheckedColor = TextSecondary)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = file.name,
-                                    fontSize = 14.5.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = TextPrimary
-                                )
+                                Text(file.name, fontSize = 14.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
                             }
                         }
                     }
@@ -80,12 +69,12 @@ fun FilePickerDialog(
                     Spacer(modifier = Modifier.width(16.dp))
                     TextButton(
                         onClick = {
-                            tempSelectedFile?.let { onFileSelected(it) }
+                            tempSelected?.let { onFileSelected(it) }
                             onDismiss()
                         },
-                        enabled = tempSelectedFile != null
+                        enabled = tempSelected != null
                     ) {
-                        Text("确定", color = if (tempSelectedFile != null) AccentTeal else TextSecondary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text("确定", color = if (tempSelected != null) AccentTeal else TextSecondary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
                 }
             }
