@@ -3,124 +3,237 @@ package com.rjtool.app.ui.screens
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
+import com.rjtool.app.ui.components.TopHeader
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PAKUnpackScreen(navController: NavController) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var selectedFile by remember { mutableStateOf<String?>(null) }
-    var outputPath by remember { mutableStateOf("/storage/emulated/0/RJTOOL/unpacked") }
-    var isProcessing by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf(0f) }
-    var logMessage by remember { mutableStateOf("") }
+    var decryptLuaOnly by remember { mutableStateOf(false) }
+    var decompileLua by remember { mutableStateOf(false) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
-            selectedFile = it.path ?: ""
-            logMessage += "Selected: ${it.path}\n"
+            selectedFile = it.lastPathSegment?.substringAfterLast('/') ?: it.path
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
-            Text(text = "PAK Unpack", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF7F9FA))
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        TopHeader()
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Back Button Row
+        Row(
+            modifier = Modifier
+                .clickable { navController.popBackStack() }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
+                contentDescription = "Back",
+                tint = Color(0xFF00796B),
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Back",
+                color = Color(0xFF00796B),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "↓ PAK Unpack", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(text = "Extract PAK file to folder", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "PAK Unpack",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1E1E1E)
+        )
+        Text(
+            text = "PAK -> files",
+            fontSize = 14.sp,
+            color = Color(0xFF757575)
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Choose File Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Choose PAK files · PAK_ORIGINAL",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E1E1E)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = selectedFile ?: "Not selected",
+                        fontSize = 13.sp,
+                        color = Color(0xFF757575)
+                    )
+                }
+                Button(
+                    onClick = { filePickerLauncher.launch("*/*") },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0F2F1)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Choose",
+                        color = Color(0xFF00796B),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedButton(onClick = { filePickerLauncher.launch("*/*") }, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.FolderOpen, contentDescription = "Select PAK")
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Select PAK File")
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Fixed Output Directory Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Text(
+                    text = "Fixed output directory",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E1E1E)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "/storage/emulated/0/RJTOOL/PAK_UNPACK",
+                    fontSize = 13.sp,
+                    color = Color(0xFF757575)
+                )
+            }
         }
-        if (selectedFile != null) {
-            Text(text = "📁 $selectedFile", modifier = Modifier.padding(vertical = 8.dp), fontSize = 12.sp)
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Options Checkbox Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { decryptLuaOnly = !decryptLuaOnly }
+                ) {
+                    Checkbox(
+                        checked = decryptLuaOnly,
+                        onCheckedChange = { decryptLuaOnly = it },
+                        colors = CheckboxDefaults.colors(checkedColor = Color(0xFF00796B))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Decrypt .lua files only",
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E1E1E)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { decompileLua = !decompileLua }
+                ) {
+                    Checkbox(
+                        checked = decompileLua,
+                        onCheckedChange = { decompileLua = it },
+                        colors = CheckboxDefaults.colors(checkedColor = Color(0xFF00796B))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Also decompile Lua and replace the original bytecode",
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E1E1E),
+                        lineHeight = 20.sp
+                    )
+                }
+            }
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(value = outputPath, onValueChange = { outputPath = it }, label = { Text("Output Folder") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-        Spacer(modifier = Modifier.height(16.dp))
+
+        Spacer(modifier = Modifier.height(26.dp))
+
+        // Unpack Button
         Button(
             onClick = {
                 if (selectedFile == null) {
-                    Toast.makeText(context, "Please select a PAK file", Toast.LENGTH_SHORT).show()
-                    return@Button
-                }
-                isProcessing = true
-                progress = 0f
-                logMessage = "Starting unpack...\n"
-                scope.launch {
-                    withContext(Dispatchers.IO) {
-                        try {
-                            for (i in 1..10) {
-                                kotlinx.coroutines.delay(200)
-                                progress = i / 10f
-                                logMessage += "Unpacking... ${i * 10}%\n"
-                            }
-                            val outputDir = File(outputPath)
-                            if (!outputDir.exists()) outputDir.mkdirs()
-                            val sampleFile = File(outputDir, "sample.txt")
-                            sampleFile.writeText("PAK unpacked successfully!")
-                            logMessage += "✅ Unpack complete!\n"
-                            logMessage += "Output: ${outputDir.absolutePath}\n"
-                            Toast.makeText(context, "Unpack complete!", Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            logMessage += "❌ Error: ${e.message}\n"
-                        } finally {
-                            isProcessing = false
-                        }
-                    }
+                    Toast.makeText(context, "Please select a PAK file first", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Unpacking $selectedFile...", Toast.LENGTH_SHORT).show()
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isProcessing
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (selectedFile != null) Color(0xFF00796B) else Color(0xFF9EABA6)
+            ),
+            shape = RoundedCornerShape(10.dp)
         ) {
-            if (isProcessing) { CircularProgressIndicator(modifier = Modifier.size(20.dp)); Spacer(modifier = Modifier.width(8.dp)) }
-            Text(if (isProcessing) "Processing..." else "Unpack PAK")
-        }
-        if (isProcessing) {
-            Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
-            Text(text = "${(progress * 100).toInt()}%", fontSize = 12.sp, modifier = Modifier.align(Alignment.End))
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        if (logMessage.isNotEmpty()) {
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
-                Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                    Text(text = "📋 Log", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = logMessage, color = Color(0xFF00FF00), fontSize = 12.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
-                }
-            }
+            Text(
+                text = "Unpack PAK",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
         }
     }
 }
