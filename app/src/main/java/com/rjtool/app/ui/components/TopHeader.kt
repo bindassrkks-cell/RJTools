@@ -20,10 +20,7 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun TopHeader(modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
                 .size(46.dp)
@@ -31,30 +28,13 @@ fun TopHeader(modifier: Modifier = Modifier) {
                 .background(Color(0xFFD6E2E6)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = "Avatar",
-                tint = Color(0xFF5F6368),
-                modifier = Modifier.size(28.dp)
-            )
+            Icon(Icons.Default.Person, "Avatar", tint = Color(0xFF5F6368), modifier = Modifier.size(28.dp))
         }
-
         Spacer(modifier = Modifier.width(12.dp))
-
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "RJTOOL v1.0.59",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E1E1E)
-            )
-            Text(
-                text = "TG @byrj6",
-                fontSize = 14.sp,
-                color = Color(0xFF757575)
-            )
+            Text("RJTOOL v1.0.59", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+            Text("TG @byrj6", fontSize = 14.sp, color = Color(0xFF757575))
         }
-
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -63,12 +43,7 @@ fun TopHeader(modifier: Modifier = Modifier) {
                 .clickable { },
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Settings",
-                tint = Color(0xFF2E7D32),
-                modifier = Modifier.size(22.dp)
-            )
+            Icon(Icons.Default.Settings, "Settings", tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp))
         }
     }
 }

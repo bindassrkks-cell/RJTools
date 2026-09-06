@@ -45,9 +45,9 @@ fun PAKRepackScreen(navController: NavController) {
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
-                Text("Source Folder: /storage/emulated/0/RJTOOL/EDITTED", fontWeight = FontWeight.Bold)
+                Text("Source: /storage/emulated/0/RJTOOL/EDITTED", fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(6.dp))
-                Text("Output Folder: /storage/emulated/0/RJTOOL/RESULT_PAK", color = Color(0xFF757575))
+                Text("Target: /storage/emulated/0/RJTOOL/RESULT_PAK", color = Color(0xFF757575))
             }
         }
     }

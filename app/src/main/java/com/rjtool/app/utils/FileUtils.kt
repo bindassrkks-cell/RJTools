@@ -9,9 +9,7 @@ object FileUtils {
     val ROOT_DIR = File(Environment.getExternalStorageDirectory(), "RJTOOL")
 
     fun initRJToolWorkspace(context: Context) {
-        if (!ROOT_DIR.exists()) {
-            ROOT_DIR.mkdirs()
-        }
+        if (!ROOT_DIR.exists()) ROOT_DIR.mkdirs()
         val folders = listOf(
             "EDITTED",
             "LUA_ORIGINAL",
@@ -22,12 +20,9 @@ object FileUtils {
         )
         folders.forEach { folderName ->
             val dir = File(ROOT_DIR, folderName)
-            if (!dir.exists()) {
-                dir.mkdirs()
-            }
+            if (!dir.exists()) dir.mkdirs()
         }
 
-        // Copy index.csv to RJTOOL folder if not present
         val targetCsv = File(ROOT_DIR, "index.csv")
         if (!targetCsv.exists()) {
             try {

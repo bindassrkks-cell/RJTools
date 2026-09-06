@@ -22,12 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rjtool.app.ui.components.TopHeader
 
-data class HomeTool(
-    val title: String,
-    val subtitle: String,
-    val icon: ImageVector,
-    val onClick: () -> Unit
-)
+data class HomeTool(val title: String, val subtitle: String, val icon: ImageVector, val onClick: () -> Unit)
 
 @Composable
 fun HomeScreen(
@@ -50,18 +45,14 @@ fun HomeScreen(
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         TopHeader()
-
         Spacer(modifier = Modifier.height(18.dp))
-
         Text(
             text = "${Build.MODEL} · Android ${Build.VERSION.RELEASE}",
             fontSize = 13.5.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFF757575)
         )
-
         Spacer(modifier = Modifier.height(14.dp))
-
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -69,30 +60,14 @@ fun HomeScreen(
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "Fixed workspace",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E1E1E)
-                )
+                Text("Fixed workspace", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "/storage/emulated/0/RJTOOL",
-                    fontSize = 13.5.sp,
-                    color = Color(0xFF757575)
-                )
+                Text("/storage/emulated/0/RJTOOL", fontSize = 13.5.sp, color = Color(0xFF757575))
                 Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "Storage access granted",
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF00875A)
-                )
+                Text("Storage access granted", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF00875A))
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
-
         tools.forEach { tool ->
             Card(
                 modifier = Modifier
@@ -116,37 +91,15 @@ fun HomeScreen(
                             .background(Color(0xFFE0F2F1)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = tool.icon,
-                            contentDescription = tool.title,
-                            tint = Color(0xFF00796B),
-                            modifier = Modifier.size(26.dp)
-                        )
+                        Icon(tool.icon, tool.title, tint = Color(0xFF00796B), modifier = Modifier.size(26.dp))
                     }
-
                     Spacer(modifier = Modifier.width(16.dp))
-
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = tool.title,
-                            fontSize = 16.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E1E1E)
-                        )
+                        Text(tool.title, fontSize = 16.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = tool.subtitle,
-                            fontSize = 13.sp,
-                            color = Color(0xFF757575)
-                        )
+                        Text(tool.subtitle, fontSize = 13.sp, color = Color(0xFF757575))
                     }
-
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                        contentDescription = "Go",
-                        tint = Color(0xFF9E9E9E),
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, "Go", tint = Color(0xFF9E9E9E), modifier = Modifier.size(16.dp))
                 }
             }
         }

@@ -18,10 +18,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         FileUtils.initRJToolWorkspace(this)
         setContent {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = Color(0xFFF7F9FA)
-            ) {
+            Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF7F9FA)) {
                 val navController = rememberNavController()
                 NavHost(navController = navController, startDestination = "home") {
                     composable("home") {
